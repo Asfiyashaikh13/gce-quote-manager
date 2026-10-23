@@ -102,15 +102,28 @@ export default function QuotesListPage() {
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="text-slate-500 hover:text-slate-900 text-xs font-semibold">
-              ← Master Sheet
-            </Link>
-            <span className="text-slate-300">/</span>
-            <h1 className="text-base font-bold text-slate-900">Quotations Registry</h1>
-            <span className="px-2.5 py-0.5 text-xs font-semibold bg-blue-50 text-blue-700 rounded-full border border-blue-200">
-              {quotes.length} Total
-            </span>
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                GCE
+              </div>
+              <h1 className="text-base font-bold text-slate-900">Quotations Registry</h1>
+              <span className="px-2.5 py-0.5 text-xs font-semibold bg-blue-50 text-blue-700 rounded-full border border-blue-200">
+                {quotes.length} Total
+              </span>
+            </div>
+
+            <nav className="hidden sm:flex items-center gap-1 text-xs font-semibold">
+              <Link href="/" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition">
+                Master Sheet
+              </Link>
+              <Link href="/quotes" className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md transition">
+                Quotes
+              </Link>
+              <Link href="/factory" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition">
+                Factory & Optimizer
+              </Link>
+            </nav>
           </div>
 
           <div className="flex items-center gap-3">

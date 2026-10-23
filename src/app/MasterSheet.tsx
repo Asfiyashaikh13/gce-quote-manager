@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import Link from "next/link";
 import { MasterSheetRowData } from "@/lib/sheet/types";
 import { groupRowsByCustomer } from "@/lib/sheet/grouping";
 import { calculateQuoteItem, formatIndianCurrency } from "@/lib/calc";
@@ -353,19 +354,31 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
       {/* Top App Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
         <div className="max-w-[98%] mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
-              GCE
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold text-slate-900 leading-tight">Master Calculation Sheet</h1>
-                <span className="px-2 py-0.5 text-[11px] font-semibold bg-blue-50 text-blue-700 rounded-full border border-blue-200">
-                  Phase 2 Master Sheet
-                </span>
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+                GCE
               </div>
-              <p className="text-xs text-slate-500">Per-row client metadata • SQLite auto-save • Excel paste & fill-down</p>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-lg font-bold text-slate-900 leading-tight">Master Calculation Sheet</h1>
+                  <span className="px-2 py-0.5 text-[11px] font-semibold bg-blue-50 text-blue-700 rounded-full border border-blue-200">
+                    Live
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500">Per-row client metadata • SQLite auto-save • Excel paste & fill-down</p>
+              </div>
             </div>
+
+            <nav className="hidden lg:flex items-center gap-1 text-xs font-semibold">
+              <span className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md">Master Sheet</span>
+              <Link href="/quotes" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition">
+                Quotes Registry
+              </Link>
+              <Link href="/factory" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition">
+                Factory & Optimizer
+              </Link>
+            </nav>
           </div>
 
           {/* Navigation Tabs & Actions */}
