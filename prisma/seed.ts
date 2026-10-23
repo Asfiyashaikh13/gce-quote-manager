@@ -15,22 +15,43 @@ async function main() {
       passwordHash,
       role: Role.ADMIN,
       name: "Admin User",
+      mustChangePassword: true, // Step 1 requirement: force password change on first login
     },
     create: {
       email: "admin@gce.local",
       name: "Admin User",
       passwordHash,
       role: Role.ADMIN,
+      mustChangePassword: true,
     },
   });
   console.log(`Seeded admin user: ${admin.email}`);
 
-  // 2. Default Settings
+  // 2. Default Settings (including Step 2 & 3 settings)
   const settings = [
     { key: "roundStep", value: "76.2", description: "Default rounding step in mm" },
     { key: "glassDeduction", value: "7", description: "Default glass cut deduction in mm" },
     { key: "gstRate", value: "18", description: "Default GST percentage rate" },
     { key: "homeState", value: "Karnataka", description: "Home state for intra-state tax calculation" },
+    { key: "validityDays", value: "57", description: "Default quote validity in days" },
+    { key: "companyName", value: "GLASS CARE ENTERPRISES", description: "Company Name" },
+    { key: "companyAddress", value: "Near Nagwara, Manyata Tech Park", description: "Company Address" },
+    { key: "companyPhone", value: "7411415842", description: "Contact Phone" },
+    { key: "bankName", value: "State Bank of India", description: "Bank Name" },
+    { key: "bankBranch", value: "Masque Road, Richards Town, Bangalore 560005", description: "Bank Branch" },
+    { key: "bankAccount", value: "42443380892", description: "Account Number" },
+    { key: "bankIfsc", value: "SBIN0002263", description: "IFSC Code" },
+    { key: "bankUpi", value: "9945988552@upi", description: "UPI ID" },
+    {
+      key: "terms",
+      value: `1] Order once confirmed\n2] Any complaint related to processing quality should be informed at time of unloading duly remarked on DC\n3] All disputes shall be subject to Bangalore jurisdiction only\n4] Initial payment 70% of gross price to be paid at the time of ordering\n5] Interim payment 20% of gross price on delivery pallet glass & material of the goods to be used for the work\n6] Final payment 10% of gross price on completion of works.`,
+      description: "Default Terms and Conditions",
+    },
+    {
+      key: "stockSheetSizes",
+      value: JSON.stringify([{ width: 2440, height: 1830, label: "Standard Float (2440x1830)" }]),
+      description: "Available stock sheet dimensions in mm for cutting optimizer",
+    },
   ];
 
   for (const s of settings) {
@@ -132,12 +153,16 @@ async function main() {
     update: {
       name: "Mr. Fayaz",
       address: "Flat 27",
+      building: "Main Building",
+      flat: "27",
       state: "Karnataka",
     },
     create: {
       id: "customer-fayaz",
       name: "Mr. Fayaz",
       address: "Flat 27",
+      building: "Main Building",
+      flat: "27",
       state: "Karnataka",
       createdById: admin.id,
     },
@@ -165,18 +190,21 @@ async function main() {
     state: "Karnataka",
   });
 
-  const quoteNumber = "Q-2026-0001";
+  const quoteNumber = "QT-241026-01"; // Step 2 standard format QT-DDMMYY-NN
 
   // Clean existing quote if any for idempotent seed
-  const existingQuote = await prisma.quote.findUnique({
-    where: { quoteNumber },
+  const existingQuote = await prisma.quote.findFirst({
+    where: { customerName: "Mr. Fayaz, flat 27" },
   });
 
   if (existingQuote) {
     await prisma.quote.delete({
-      where: { quoteNumber },
+      where: { id: existingQuote.id },
     });
   }
+
+  const validUntil = new Date();
+  validUntil.setDate(validUntil.getDate() + 57);
 
   const quote = await prisma.quote.create({
     data: {
@@ -186,12 +214,15 @@ async function main() {
       customerId: customer.id,
       customerName: "Mr. Fayaz, flat 27",
       customerAddress: "Flat 27",
+      customerBuilding: "Main Building",
+      customerFlat: "27",
       customerState: "Karnataka",
       destinationState: "Karnataka",
       factoryId: factoryVeera.id,
       discountType: DiscountType.NONE,
       discountValue: 0,
       freight: 0,
+      validUntil,
       subTotal: calculation.totals.subTotal.toNumber(),
       cgstTotal: calculation.totals.cgstTotal.toNumber(),
       sgstTotal: calculation.totals.sgstTotal.toNumber(),
@@ -246,6 +277,45 @@ async function main() {
 
   console.log(`Seeded sample quote ${quote.quoteNumber} for ${quote.customerName}`);
   console.log(`Totals -> SubTotal: ${quote.subTotal}, GST: ${quote.gstTotal}, GrandTotal: ${quote.grandTotal}, Display: ${quote.displayTotal}`);
+
+  // 7. Seed Master Sheet Rows (Phase 2 Master Sheet with per-row client metadata)
+  await prisma.masterRow.deleteMany({});
+  for (let i = 0; i < calculation.items.length; i++) {
+    const item = calculation.items[i];
+    const raw = rawLines[i];
+    const product = products[raw.productCode];
+
+    await prisma.masterRow.create({
+      data: {
+        rowOrder: i + 1,
+        clientName: "Mr. Fayaz",
+        flat: "27",
+        building: "Main Building",
+        state: "Karnataka",
+        factory: "Veera Glass",
+        status: "Draft",
+        notes: `Seed line ${i + 1}`,
+        productId: product?.id,
+        description: product?.name ?? "Custom Item",
+        frameHeightMm: item.frameHeight.toNumber(),
+        frameWidthMm: item.frameWidth.toNumber(),
+        quantity: item.quantity,
+        rate: item.rate.toNumber(),
+        discountType: "NONE",
+        discountValue: 0,
+        roundedHeightMm: item.roundedHeight.toNumber(),
+        roundedWidthMm: item.roundedWidth.toNumber(),
+        glassCutHeightMm: item.glassCutHeight.toNumber(),
+        glassCutWidthMm: item.glassCutWidth.toNumber(),
+        sqft: item.sqft.toNumber(),
+        runningFeet: item.runningFeet.toNumber(),
+        netAmount: item.netAmount.toNumber(),
+        gstAmount: item.gstAmount.toNumber(),
+        totalAmount: item.totalAmount.toNumber(),
+      },
+    });
+  }
+  console.log(`Seeded 7 master sheet rows for Mr. Fayaz flat 27`);
 }
 
 main()
@@ -256,4 +326,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-

@@ -1,12 +1,48 @@
 import { Suspense } from "react";
 import prisma from "@/lib/prisma";
-import { QuoteManagerClient } from "./QuoteManagerClient";
+import { MasterSheet } from "./MasterSheet";
+import { MasterSheetRowData } from "@/lib/sheet/types";
 
-async function QuoteManagerData() {
+async function MasterSheetData() {
+  let rows: MasterSheetRowData[] = [];
   let products: Array<{ id: string; name: string; code: string | null; rate: number }> = [];
   let factories: Array<{ id: string; name: string }> = [];
 
   try {
+    const dbRows = await prisma.masterRow.findMany({
+      where: { deletedAt: null },
+      orderBy: { rowOrder: "asc" },
+    });
+
+    rows = dbRows.map((r) => ({
+      id: r.id,
+      rowOrder: r.rowOrder,
+      clientName: r.clientName,
+      flat: r.flat || "",
+      building: r.building || "",
+      state: r.state || "Karnataka",
+      factory: r.factory || "Veera Glass",
+      status: r.status || "Draft",
+      notes: r.notes || "",
+      productId: r.productId || "",
+      description: r.description,
+      frameHeightMm: r.frameHeightMm.toNumber(),
+      frameWidthMm: r.frameWidthMm.toNumber(),
+      quantity: r.quantity,
+      rate: r.rate.toNumber(),
+      discountType: (r.discountType as "PERCENT" | "FLAT" | "NONE") || "NONE",
+      discountValue: r.discountValue.toNumber(),
+      roundedHeightMm: r.roundedHeightMm.toNumber(),
+      roundedWidthMm: r.roundedWidthMm.toNumber(),
+      glassCutHeightMm: r.glassCutHeightMm.toNumber(),
+      glassCutWidthMm: r.glassCutWidthMm.toNumber(),
+      sqft: r.sqft.toNumber(),
+      runningFeet: r.runningFeet.toNumber(),
+      netAmount: r.netAmount.toNumber(),
+      gstAmount: r.gstAmount.toNumber(),
+      totalAmount: r.totalAmount.toNumber(),
+    }));
+
     const dbProducts = await prisma.product.findMany({
       where: { deletedAt: null },
       orderBy: { name: "asc" },
@@ -30,6 +66,7 @@ async function QuoteManagerData() {
     console.error("Failed to load DB entities:", err);
   }
 
+  // Fallbacks if database is empty
   if (products.length === 0) {
     products = [
       { id: "p1", code: "AL-SHUTTER-565", name: "Al Shutters 565", rate: 565 },
@@ -47,9 +84,10 @@ async function QuoteManagerData() {
   }
 
   return (
-    <QuoteManagerClient
-      initialProducts={products}
-      initialFactories={factories}
+    <MasterSheet
+      initialRows={rows}
+      products={products}
+      factories={factories}
     />
   );
 }
@@ -59,11 +97,11 @@ export default function Home() {
     <Suspense
       fallback={
         <div className="min-h-screen bg-slate-100 flex items-center justify-center p-8">
-          <div className="text-slate-600 font-medium animate-pulse">Loading Quote Manager...</div>
+          <div className="text-slate-600 font-medium animate-pulse">Loading Master Sheet...</div>
         </div>
       }
     >
-      <QuoteManagerData />
+      <MasterSheetData />
     </Suspense>
   );
 }

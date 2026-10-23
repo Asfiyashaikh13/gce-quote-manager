@@ -18,7 +18,9 @@ enum QuoteStatus {
   DRAFT
   SENT
   APPROVED
-  REJECTED
+  IN_PRODUCTION
+  DELIVERED
+  PAID
   CANCELLED
 }
 
@@ -28,21 +30,30 @@ enum DiscountType {
   NONE
 }
 
-model User {
-  id           String     @id @default(cuid())
-  email        String     @unique
-  name         String?
-  passwordHash String
-  role         Role       @default(STAFF)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  deletedAt    DateTime?
-  createdById  String?
-  updatedById  String?
+enum PaymentMode {
+  CASH
+  UPI
+  BANK
+  CHEQUE
+}
 
-  quotesCreated Quote[]    @relation("QuoteCreatedBy")
-  quotesUpdated Quote[]    @relation("QuoteUpdatedBy")
-  auditLogs     AuditLog[]
+model User {
+  id                 String     @id @default(cuid())
+  email              String     @unique
+  name               String?
+  passwordHash       String
+  role               Role       @default(STAFF)
+  mustChangePassword Boolean    @default(false)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  deletedAt          DateTime?
+  createdById        String?
+  updatedById        String?
+
+  quotesCreated    Quote[]    @relation("QuoteCreatedBy")
+  quotesUpdated    Quote[]    @relation("QuoteUpdatedBy")
+  auditLogs        AuditLog[]
+  paymentsRecorded Payment[]  @relation("PaymentRecordedBy")
 
   @@index([email])
   @@index([role])
@@ -55,6 +66,8 @@ model Customer {
   phone       String?
   email       String?
   address     String?
+  building    String?
+  flat        String?
   city        String?
   state       String    @default("Karnataka")
   pincode     String?
@@ -69,6 +82,8 @@ model Customer {
 
   @@index([name])
   @@index([phone])
+  @@index([building])
+  @@index([flat])
   @@index([deletedAt])
 }
 
@@ -112,6 +127,46 @@ model Factory {
   @@index([deletedAt])
 }
 
+model MasterRow {
+  id               String    @id @default(cuid())
+  rowOrder         Int       @default(0)
+  clientName       String    @default("")
+  flat             String?   @default("")
+  building         String?   @default("")
+  state            String    @default("Karnataka")
+  factory          String?   @default("Veera Glass")
+  status           String    @default("Draft")
+  notes            String?   @default("")
+  productId        String?
+  description      String    @default("")
+  frameHeightMm    Decimal   @default(0)
+  frameWidthMm     Decimal   @default(0)
+  quantity         Int       @default(1)
+  rate             Decimal   @default(0)
+  discountType     String    @default("NONE")
+  discountValue    Decimal   @default(0)
+  // Computed values
+  roundedHeightMm  Decimal   @default(0)
+  roundedWidthMm   Decimal   @default(0)
+  glassCutHeightMm Decimal   @default(0)
+  glassCutWidthMm  Decimal   @default(0)
+  sqft             Decimal   @default(0)
+  runningFeet      Decimal   @default(0)
+  netAmount        Decimal   @default(0)
+  gstAmount        Decimal   @default(0)
+  totalAmount      Decimal   @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  @@index([clientName])
+  @@index([building])
+  @@index([flat])
+  @@index([status])
+  @@index([rowOrder])
+  @@index([deletedAt])
+}
+
 model Quote {
   id               String       @id @default(cuid())
   quoteNumber      String       @unique
@@ -122,6 +177,8 @@ model Quote {
   customerName     String
   customerPhone    String?
   customerAddress  String?
+  customerBuilding String?
+  customerFlat     String?
   customerState    String       @default("Karnataka")
   destinationState String       @default("Karnataka")
   factoryId        String?
@@ -129,6 +186,13 @@ model Quote {
   discountType     DiscountType @default(NONE)
   discountValue    Decimal      @default(0)
   freight          Decimal      @default(0)
+  validUntil       DateTime?
+
+  // Revisions tracking
+  parentQuoteId    String?
+  parentQuote      Quote?       @relation("QuoteRevisions", fields: [parentQuoteId], references: [id], onDelete: SetNull)
+  revisions        Quote[]      @relation("QuoteRevisions")
+  revisionNotes    String?
 
   // Totals snapshot
   subTotal          Decimal @default(0)
@@ -150,12 +214,14 @@ model Quote {
   updatedById String?
   updatedBy   User?     @relation("QuoteUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
-  items QuoteItem[]
+  items    QuoteItem[]
+  payments Payment[]
 
   @@index([quoteNumber])
   @@index([status])
   @@index([customerId])
   @@index([factoryId])
+  @@index([parentQuoteId])
   @@index([createdAt])
   @@index([deletedAt])
 }
@@ -208,6 +274,29 @@ model QuoteItem {
   @@index([deletedAt])
 }
 
+model Payment {
+  id            String      @id @default(cuid())
+  quoteId       String
+  quote         Quote       @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  receiptNumber String      @unique
+  milestone     String      // "70% Advance", "20% Delivery", "10% Completion", or "Custom"
+  amount        Decimal
+  mode          PaymentMode @default(BANK)
+  reference     String?     // Transaction ID, cheque number, etc.
+  paymentDate   DateTime    @default(now())
+  notes         String?
+  recordedById  String?
+  recordedBy    User?       @relation("PaymentRecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  deletedAt     DateTime?
+
+  @@index([quoteId])
+  @@index([receiptNumber])
+  @@index([paymentDate])
+  @@index([deletedAt])
+}
+
 model Setting {
   id          String    @id @default(cuid())
   key         String    @unique
@@ -225,10 +314,10 @@ model AuditLog {
   id            String   @id @default(cuid())
   entityName    String
   entityId      String
-  action        String
+  action        String   // CREATE, UPDATE, DELETE, LOGIN, PASSWORD_CHANGE, etc.
   performedById String?
   performedBy   User?    @relation(fields: [performedById], references: [id], onDelete: SetNull)
-  details       String?
+  details       String?  // JSON with before / after diff
   ipAddress     String?
   createdAt     DateTime @default(now())
 
@@ -236,4 +325,3 @@ model AuditLog {
   @@index([performedById])
   @@index([createdAt])
 }
-
