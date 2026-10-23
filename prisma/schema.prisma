@@ -1,0 +1,239 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  STAFF
+  VIEWER
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum DiscountType {
+  PERCENT
+  FLAT
+  NONE
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String?
+  passwordHash String
+  role         Role       @default(STAFF)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  deletedAt    DateTime?
+  createdById  String?
+  updatedById  String?
+
+  quotesCreated Quote[]    @relation("QuoteCreatedBy")
+  quotesUpdated Quote[]    @relation("QuoteUpdatedBy")
+  auditLogs     AuditLog[]
+
+  @@index([email])
+  @@index([role])
+  @@index([deletedAt])
+}
+
+model Customer {
+  id          String    @id @default(cuid())
+  name        String
+  phone       String?
+  email       String?
+  address     String?
+  city        String?
+  state       String    @default("Karnataka")
+  pincode     String?
+  gstin       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdById String?
+  updatedById String?
+
+  quotes Quote[]
+
+  @@index([name])
+  @@index([phone])
+  @@index([deletedAt])
+}
+
+model Product {
+  id          String    @id @default(cuid())
+  name        String
+  code        String?   @unique
+  description String?
+  rate        Decimal
+  hsn         String?
+  gstRate     Decimal   @default(18)
+  unit        String    @default("SQFT")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdById String?
+  updatedById String?
+
+  quoteItems QuoteItem[]
+
+  @@index([name])
+  @@index([deletedAt])
+}
+
+model Factory {
+  id          String    @id @default(cuid())
+  name        String
+  code        String?
+  address     String?
+  phone       String?
+  email       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdById String?
+  updatedById String?
+
+  quotes Quote[]
+
+  @@index([name])
+  @@index([deletedAt])
+}
+
+model Quote {
+  id               String       @id @default(cuid())
+  quoteNumber      String       @unique
+  version          Int          @default(1)
+  status           QuoteStatus  @default(DRAFT)
+  customerId       String?
+  customer         Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerName     String
+  customerPhone    String?
+  customerAddress  String?
+  customerState    String       @default("Karnataka")
+  destinationState String       @default("Karnataka")
+  factoryId        String?
+  factory          Factory?     @relation(fields: [factoryId], references: [id], onDelete: SetNull)
+  discountType     DiscountType @default(NONE)
+  discountValue    Decimal      @default(0)
+  freight          Decimal      @default(0)
+
+  // Totals snapshot
+  subTotal          Decimal @default(0)
+  cgstTotal         Decimal @default(0)
+  sgstTotal         Decimal @default(0)
+  igstTotal         Decimal @default(0)
+  gstTotal          Decimal @default(0)
+  grandTotal        Decimal @default(0)
+  roundOff          Decimal @default(0)
+  displayTotal      Decimal @default(0)
+  displayTotalWords String?
+  notes             String?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdById String?
+  createdBy   User?     @relation("QuoteCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   User?     @relation("QuoteUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  items QuoteItem[]
+
+  @@index([quoteNumber])
+  @@index([status])
+  @@index([customerId])
+  @@index([factoryId])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+model QuoteItem {
+  id          String       @id @default(cuid())
+  quoteId     String
+  quote       Quote        @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
+  itemOrder   Int          @default(0)
+  description String?
+
+  // Inputs
+  frameHeightMm Decimal
+  frameWidthMm  Decimal
+  quantity      Int          @default(1)
+  rate          Decimal
+  discountType  DiscountType @default(NONE)
+  discountValue Decimal      @default(0)
+
+  // Computed fields
+  roundedHeightMm  Decimal
+  roundedWidthMm   Decimal
+  glassCutHeightMm Decimal
+  glassCutWidthMm  Decimal
+  sqft             Decimal
+  runningFeet      Decimal
+  grossAmount      Decimal
+  discountAmount   Decimal @default(0)
+  netAmount        Decimal
+  taxableAmount    Decimal
+  cgstRate         Decimal @default(0)
+  sgstRate         Decimal @default(0)
+  igstRate         Decimal @default(0)
+  cgstAmount       Decimal @default(0)
+  sgstAmount       Decimal @default(0)
+  igstAmount       Decimal @default(0)
+  gstAmount        Decimal @default(0)
+  totalAmount      Decimal
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdById String?
+  updatedById String?
+
+  @@index([quoteId])
+  @@index([productId])
+  @@index([deletedAt])
+}
+
+model Setting {
+  id          String    @id @default(cuid())
+  key         String    @unique
+  value       String
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@index([key])
+  @@index([deletedAt])
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  entityName    String
+  entityId      String
+  action        String
+  performedById String?
+  performedBy   User?    @relation(fields: [performedById], references: [id], onDelete: SetNull)
+  details       String?
+  ipAddress     String?
+  createdAt     DateTime @default(now())
+
+  @@index([entityName, entityId])
+  @@index([performedById])
+  @@index([createdAt])
+}
+
