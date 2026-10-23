@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { formatIndianCurrency, numberToIndianWords } from "@/lib/calc";
 import { generateWhatsAppShareUrl } from "@/lib/quotes/whatsapp";
 import { computeQuoteDiff, QuoteDiffResult } from "@/lib/quotes/revisions";
+import { calculatePaymentSchedule } from "@/lib/payments/milestones";
 import { QuoteStatus } from "@prisma/client";
 
 interface QuoteItem {
@@ -66,6 +67,15 @@ interface QuoteDetail {
     version: number;
     grandTotal: number;
   } | null;
+  payments?: Array<{
+    id: string;
+    receiptNumber: string;
+    amount: number;
+    milestone: string;
+    mode: string;
+    reference?: string;
+    paymentDate: string;
+  }>;
 }
 
 function QuoteDetailContent({ quoteId }: { quoteId: string }) {
@@ -533,6 +543,103 @@ function QuoteDetailContent({ quoteId }: { quoteId: string }) {
                 </div>
               )}
             </div>
+
+            {/* Payment Milestones & Schedule */}
+            {(() => {
+              const paySched = calculatePaymentSchedule(
+                quote.displayTotal,
+                quote.payments || []
+              );
+              return (
+                <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 mt-6">
+                  <div className="flex items-center justify-between border-b pb-3 mb-3">
+                    <h3 className="text-xs font-bold uppercase text-slate-700">Payment Milestones (70/20/10)</h3>
+                    <Link
+                      href="/payments"
+                      className="px-2.5 py-1 text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded transition"
+                    >
+                      + Record Payment
+                    </Link>
+                  </div>
+
+                  <div className="space-y-3 mb-4">
+                    {paySched.milestones.map((m, idx) => (
+                      <div key={idx} className="p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-xs">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="font-semibold text-slate-800">{m.name}</span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              m.status === "PAID"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : m.status === "PARTIAL"
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-slate-200 text-slate-600"
+                            }`}
+                          >
+                            {m.status}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-slate-500 text-[11px]">
+                          <span>Target: {formatIndianCurrency(m.expectedAmount.toNumber())}</span>
+                          <span>Paid: {formatIndianCurrency(m.paidAmount.toNumber())}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="p-3 bg-slate-100 rounded-lg flex justify-between items-center text-xs">
+                    <div>
+                      <span className="text-slate-500 block text-[10px] uppercase font-bold">Total Paid</span>
+                      <span className="font-bold text-emerald-700 text-sm">
+                        {formatIndianCurrency(paySched.totalPaid.toNumber())}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-slate-500 block text-[10px] uppercase font-bold">Outstanding Balance</span>
+                      <span
+                        className={`font-bold text-sm ${
+                          paySched.outstandingBalance.greaterThan(0) ? "text-red-600" : "text-emerald-700"
+                        }`}
+                      >
+                        {formatIndianCurrency(paySched.outstandingBalance.toNumber())}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Recorded Payments List */}
+                  {quote.payments && quote.payments.length > 0 && (
+                    <div className="mt-4 pt-3 border-t">
+                      <h4 className="text-[10px] font-bold text-slate-400 uppercase mb-2">Recorded Receipts</h4>
+                      <div className="space-y-1.5">
+                        {quote.payments.map((p) => (
+                          <div
+                            key={p.id}
+                            className="flex items-center justify-between p-2 bg-slate-50 rounded border text-xs"
+                          >
+                            <div>
+                              <span className="font-mono font-bold text-blue-600">{p.receiptNumber}</span>
+                              <span className="text-slate-500 ml-2">({p.mode})</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-bold text-emerald-600">
+                                {formatIndianCurrency(p.amount)}
+                              </span>
+                              <a
+                                href={`/api/payments/${p.id}/receipt`}
+                                download
+                                className="px-2 py-0.5 text-[10px] bg-blue-50 text-blue-700 rounded hover:bg-blue-100"
+                              >
+                                PDF
+                              </a>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
 

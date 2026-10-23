@@ -370,13 +370,22 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
               </div>
             </div>
 
-            <nav className="hidden lg:flex items-center gap-1 text-xs font-semibold">
+            <nav className="hidden xl:flex items-center gap-1 text-xs font-semibold">
               <span className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md">Master Sheet</span>
               <Link href="/quotes" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition">
-                Quotes Registry
+                Quotes
               </Link>
               <Link href="/factory" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition">
-                Factory & Optimizer
+                Factory Sheet
+              </Link>
+              <Link href="/payments" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition">
+                Payments
+              </Link>
+              <Link href="/dashboard" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition">
+                Dashboard
+              </Link>
+              <Link href="/customers" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition">
+                Customers
               </Link>
             </nav>
           </div>

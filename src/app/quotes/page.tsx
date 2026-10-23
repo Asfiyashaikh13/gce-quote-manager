@@ -121,7 +121,16 @@ export default function QuotesListPage() {
                 Quotes
               </Link>
               <Link href="/factory" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition">
-                Factory & Optimizer
+                Factory Sheet
+              </Link>
+              <Link href="/payments" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition">
+                Payments
+              </Link>
+              <Link href="/dashboard" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition">
+                Dashboard
+              </Link>
+              <Link href="/customers" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition">
+                Customers
               </Link>
             </nav>
           </div>

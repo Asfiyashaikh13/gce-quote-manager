@@ -83,8 +83,8 @@ export async function GET(
         "Content-Disposition": `attachment; filename="${quote.quoteNumber}-v${quote.version}.pdf"`,
       },
     });
-  } catch (error: any) {
-    if (error?.digest?.startsWith?.("NEXT_PRERENDER")) {
+  } catch (error: unknown) {
+    if ((error as { digest?: string })?.digest?.startsWith?.("NEXT_PRERENDER")) {
       throw error;
     }
     console.error("PDF generation error:", error);
