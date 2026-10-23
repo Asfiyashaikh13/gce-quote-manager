@@ -51,7 +51,7 @@ export default function PaymentsPage() {
   const [milestone, setMilestone] = useState("Initial payment (70% on ordering)");
   const [paymentMode, setPaymentMode] = useState("BANK");
   const [reference, setReference] = useState("");
-  const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [paymentDate, setPaymentDate] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -144,6 +144,7 @@ export default function PaymentsPage() {
 
   const handleOpenPaymentModal = (quoteId?: string) => {
     if (quoteId) setSelectedQuoteId(quoteId);
+    setPaymentDate(new Date().toISOString().split("T")[0]);
     setIsModalOpen(true);
   };
 

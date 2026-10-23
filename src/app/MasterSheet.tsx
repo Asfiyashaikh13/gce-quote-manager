@@ -200,6 +200,9 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
   // Delete Row
   const handleDeleteRow = (id: string) => {
     if (rows.length <= 1) return;
+    if (typeof window !== "undefined" && !window.confirm("Are you sure you want to delete this row?")) {
+      return;
+    }
     const filtered = rows.filter((r) => r.id !== id);
     updateRowsWithHistory(filtered);
   };
@@ -536,8 +539,8 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
               </div>
             </div>
 
-            {/* Excel-like Table View */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+            {/* Excel-like Table View (Desktop & Tablet) */}
+            <div className="hidden md:block bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
               <div className="overflow-x-auto max-h-[70vh]">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
@@ -751,6 +754,121 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                   </tfoot>
                 </table>
               </div>
+            </div>
+
+            {/* Mobile Card-per-Row Editor (Phones < 768px) */}
+            <div className="md:hidden space-y-4">
+              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex justify-between items-center text-xs">
+                <span className="font-bold text-slate-700">Total {filteredRows.length} Rows</span>
+                <span className="font-mono font-bold text-blue-700">{formatIndianCurrency(overallTotals.total)}</span>
+              </div>
+
+              {filteredRows.map((r, idx) => (
+                <div
+                  key={r.id}
+                  className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs space-y-3"
+                >
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-800 font-bold text-xs flex items-center justify-center">
+                        {idx + 1}
+                      </span>
+                      <span className="font-bold text-slate-900 text-sm">{r.clientName || "Unnamed Client"}</span>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteRow(r.id)}
+                      className="text-red-500 hover:text-red-700 text-xs font-semibold px-2 py-0.5"
+                    >
+                      Delete
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-400 block">Flat / Unit</label>
+                      <input
+                        type="text"
+                        value={r.flat}
+                        onChange={(e) => handleCellChange(r.id, { flat: e.target.value })}
+                        placeholder="e.g. 27"
+                        className="w-full px-2 py-1 border border-slate-200 rounded mt-0.5"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-400 block">Building</label>
+                      <input
+                        type="text"
+                        value={r.building}
+                        onChange={(e) => handleCellChange(r.id, { building: e.target.value })}
+                        placeholder="e.g. Tower B"
+                        className="w-full px-2 py-1 border border-slate-200 rounded mt-0.5"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-slate-400 block">Item / Glass Type</label>
+                    <input
+                      type="text"
+                      value={r.description}
+                      onChange={(e) => handleCellChange(r.id, { description: e.target.value })}
+                      className="w-full px-2 py-1 border border-slate-200 rounded mt-0.5"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2 text-xs">
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-400 block">Frame H</label>
+                      <input
+                        type="number"
+                        value={r.frameHeightMm || ""}
+                        onChange={(e) => handleCellChange(r.id, { frameHeightMm: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-2 py-1 border border-slate-200 rounded mt-0.5 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-400 block">Frame W</label>
+                      <input
+                        type="number"
+                        value={r.frameWidthMm || ""}
+                        onChange={(e) => handleCellChange(r.id, { frameWidthMm: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-2 py-1 border border-slate-200 rounded mt-0.5 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-400 block">Qty</label>
+                      <input
+                        type="number"
+                        value={r.quantity || ""}
+                        onChange={(e) => handleCellChange(r.id, { quantity: parseInt(e.target.value, 10) || 1 })}
+                        className="w-full px-2 py-1 border border-slate-200 rounded mt-0.5 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-400 block">Rate (₹)</label>
+                      <input
+                        type="number"
+                        value={r.rate || ""}
+                        onChange={(e) => handleCellChange(r.id, { rate: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-2 py-1 border border-slate-200 rounded mt-0.5 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Computed Chips */}
+                  <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t text-[11px]">
+                    <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded font-mono">
+                      Cut: {r.glassCutHeightMm}×{r.glassCutWidthMm}
+                    </span>
+                    <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded font-mono">
+                      {r.sqft.toFixed(2)} sqft
+                    </span>
+                    <span className="ml-auto font-mono font-bold text-slate-900 text-sm">
+                      {formatIndianCurrency(r.totalAmount)}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
           </>
         ) : (

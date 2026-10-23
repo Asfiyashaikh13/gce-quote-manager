@@ -12,6 +12,10 @@ export function canManageUsers(role: UserRole): boolean {
   return role === "ADMIN";
 }
 
+export function isAdmin(role: UserRole): boolean {
+  return role === "ADMIN";
+}
+
 export function canEditSettings(role: UserRole): boolean {
   return role === "ADMIN" || role === "MANAGER";
 }

@@ -80,3 +80,48 @@ This document outlines the key assumptions and design decisions made for Phase 1
   - Round Off: -₹0.16
   - Display Total: ₹25,347
 
+
+
+---
+
+## 4. Phase 2 & 3: Master Sheet, Quotes Registry & Revisions
+
+- **MasterRow Table**: Stores all Excel-like grid rows independently with per-row client metadata, auto-saved to SQLite with debounce.
+- **Auto-Grouping**: Groups master rows by `Client + Flat + Building` into cohesive quotations with stable `QT-DDMMYY-NN` numbering.
+- **Revisions System**:
+  - Revisions are created when editing any quote in `SENT`, `APPROVED`, `IN_PRODUCTION`, or `DELIVERED` status.
+  - New revision increments the version counter (`v1 -> v2 -> v3`) and sets `parentQuoteId`.
+  - Revisions diff calculator evaluates before/after row diffs, rate/quantity changes, and financial difference.
+- **A4 PDF Generation (`@react-pdf/renderer`)**:
+  - Embedded company letterhead with Nagwara/Manyata contact info.
+  - State Bank of India Richards Town bank details and live UPI QR code with prefilled amount.
+  - Customer copy toggle hides cutting sizes ($H-7, W-7$) when sending client quotations.
+
+---
+
+## 5. Phase 4: Factory Sheet & Guillotine Cutting Optimizer
+
+- **Guillotine Bin Packing**:
+  - Uses 2D guillotine cutting heuristic (straight-line cuts from edge to opposite edge).
+  - Shorter-axis split logic produces optimal packing density on standard float sheets (default: 2440 $\times$ 1830 mm).
+  - Supports piece rotation (90°) and blade kerf configuration.
+  - SVG layout generator produces interactive diagrams with piece tags and rotation indicators.
+- **Factory Cutting Indent**:
+  - Groups items by processing unit (factory), then by glass thickness/type.
+  - Formats plain-text lists for WhatsApp sharing.
+
+---
+
+## 6. Phase 5: Payments, Milestones, Dashboard & Quality
+
+- **70/20/10 Payment Milestones**:
+  - Advance payment (70% on order).
+  - Interim payment (20% on delivery).
+  - Final payment (10% on completion).
+  - Overdue tracking highlights quotes in progress with remaining balance.
+  - Generates official payment receipts (`REC-DDMMYY-NN`) in PDF with words representation.
+- **Executive Dashboard**:
+  - Built with Recharts (Monthly Quoted vs Approved value, Status Funnel, Top 5 Clients, Top Products).
+- **System Backups**:
+  - `npm run backup` creates instant byte-for-byte SQLite snapshots in `./backups/`.
+  - JSON backup/restore provides portable multi-table snapshots.
