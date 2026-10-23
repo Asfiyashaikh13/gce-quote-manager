@@ -1,69 +1,69 @@
-import Image from "next/image";
+import { Suspense } from "react";
+import prisma from "@/lib/prisma";
+import { QuoteManagerClient } from "./QuoteManagerClient";
+
+async function QuoteManagerData() {
+  let products: Array<{ id: string; name: string; code: string | null; rate: number }> = [];
+  let factories: Array<{ id: string; name: string }> = [];
+
+  try {
+    const dbProducts = await prisma.product.findMany({
+      where: { deletedAt: null },
+      orderBy: { name: "asc" },
+    });
+    products = dbProducts.map((p) => ({
+      id: p.id,
+      name: p.name,
+      code: p.code,
+      rate: p.rate.toNumber(),
+    }));
+
+    const dbFactories = await prisma.factory.findMany({
+      where: { deletedAt: null },
+      orderBy: { name: "asc" },
+    });
+    factories = dbFactories.map((f) => ({
+      id: f.id,
+      name: f.name,
+    }));
+  } catch (err) {
+    console.error("Failed to load DB entities:", err);
+  }
+
+  if (products.length === 0) {
+    products = [
+      { id: "p1", code: "AL-SHUTTER-565", name: "Al Shutters 565", rate: 565 },
+      { id: "p2", code: "AL-SHUTTER-430", name: "Al Shutters 430", rate: 430 },
+      { id: "p3", code: "GLASS-PLAIN-8MM", name: "8mm plain glass", rate: 135 },
+      { id: "p4", code: "MIRROR-POLISHED-5MM", name: "5mm mirror polished", rate: 145 },
+    ];
+  }
+
+  if (factories.length === 0) {
+    factories = [
+      { id: "f1", name: "Veera Glass" },
+      { id: "f2", name: "Wender Sachin" },
+    ];
+  }
+
+  return (
+    <QuoteManagerClient
+      initialProducts={products}
+      initialFactories={factories}
+    />
+  );
+}
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-100 flex items-center justify-center p-8">
+          <div className="text-slate-600 font-medium animate-pulse">Loading Quote Manager...</div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      }
+    >
+      <QuoteManagerData />
+    </Suspense>
   );
 }
