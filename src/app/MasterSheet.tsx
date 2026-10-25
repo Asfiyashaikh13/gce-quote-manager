@@ -26,7 +26,7 @@ interface MasterSheetProps {
 }
 
 export function MasterSheet({ initialRows, products, factories }: MasterSheetProps) {
-  // Navigation tabs matching the Google Sheet tabs: _Notebook Size's @26L and _Notelist @26
+  // Navigation tabs: Estimator Grid vs Client Quotations Summary
   const [activeTab, setActiveTab] = useState<"sheet" | "quotes">("sheet");
   const [rows, setRows] = useState<MasterSheetRowData[]>(initialRows);
   const [history, setHistory] = useState<MasterSheetRowData[][]>([initialRows]);
@@ -46,10 +46,6 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
   // Freight charge
   const [freightCharge, setFreightCharge] = useState<number>(0);
 
-  // Active cell coordinate for fx bar
-  const [activeCellCoord, setActiveCellCoord] = useState("A1:D4");
-  const [activeCellValue, setActiveCellValue] = useState("GLASS CARE ENTERPRISES");
-
   // Import Modal & Toast
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importText, setImportText] = useState("");
@@ -65,17 +61,17 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
   const [newClientRowsCount, setNewClientRowsCount] = useState(3);
   const [copyFromClient, setCopyFromClient] = useState("NONE");
 
+  // Selected row
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+
   const showToast = (msg: string) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(null), 4000);
   };
 
-  // Selection for fill down & copy
-  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
-
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Recalculate row computed values using calc engine
+  // Recalculate row computed values using the pure calculation engine
   const recalculateRow = useCallback((r: Partial<MasterSheetRowData>): MasterSheetRowData => {
     const calc = calculateQuoteItem(
       {
@@ -90,13 +86,13 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
     );
 
     return {
-      id: r.id || `new-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      id: r.id || `row-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       rowOrder: r.rowOrder || 1,
-      date: r.date || "07/09/2026",
+      date: r.date || new Date().toLocaleDateString("en-GB"),
       clientName: r.clientName || "",
       flat: r.flat || "",
       building: r.building || "",
-      category: r.category || "",
+      category: r.category || "Aluminium",
       state: r.state || "Karnataka",
       factory: r.factory || "Veera Glass",
       status: r.status || "Draft",
@@ -206,13 +202,13 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
     const defaultProd = products[0];
     const prevRow = rows[rows.length - 1];
     const newRow = recalculateRow({
-      id: `row-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      id: `row-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       rowOrder: rows.length + 1,
-      date: prevRow?.date || "07/09/2026",
+      date: prevRow?.date || new Date().toLocaleDateString("en-GB"),
       clientName: filterCustomer !== "ALL" ? filterCustomer : prevRow?.clientName || "Mr. Fayaz",
       flat: prevRow?.flat || "27",
-      building: prevRow?.building || "Al.",
-      category: prevRow?.category || "",
+      building: prevRow?.building || "Main Building",
+      category: prevRow?.category || "Aluminium",
       state: prevRow?.state || "Karnataka",
       factory: prevRow?.factory || "Veera Glass",
       status: "Draft",
@@ -230,6 +226,19 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
     updateRowsWithHistory([...rows, newRow]);
   };
 
+  // Duplicate specific row
+  const handleDuplicateRow = (id: string) => {
+    const target = rows.find((r) => r.id === id);
+    if (!target) return;
+    const duplicated = recalculateRow({
+      ...target,
+      id: `row-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      rowOrder: rows.length + 1,
+    });
+    updateRowsWithHistory([...rows, duplicated]);
+    showToast("Measurement row duplicated");
+  };
+
   // Delete Row
   const handleDeleteRow = (id: string) => {
     if (rows.length <= 1) return;
@@ -240,7 +249,7 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
     updateRowsWithHistory(filtered);
   };
 
-  // Fill Down: copy values from above row into selected row
+  // Fill Down (Ctrl+D)
   const handleFillDown = useCallback(() => {
     if (!selectedRowId) return;
     const index = rows.findIndex((r) => r.id === selectedRowId);
@@ -286,7 +295,7 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
         sourceRows.forEach((sr, idx) => {
           newRows.push(
             recalculateRow({
-              id: `row-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
+              id: `row-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
               rowOrder: rows.length + idx + 1,
               date: today,
               clientName: newClientName.trim(),
@@ -312,13 +321,13 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
       for (let i = 0; i < count; i++) {
         newRows.push(
           recalculateRow({
-            id: `row-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 4)}`,
+            id: `row-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 6)}`,
             rowOrder: rows.length + i + 1,
             date: today,
             clientName: newClientName.trim(),
             flat: newClientFlat.trim(),
             building: newClientBuilding.trim(),
-            category: "",
+            category: "Aluminium",
             description: defaultProd?.name || "Al Shutters 565",
             productId: defaultProd?.code || "AL-SHUTTER-565",
             frameHeightMm: 1000 + i * 150,
@@ -356,7 +365,7 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
     const today = new Date().toLocaleDateString("en-GB");
     const newRows = sourceRows.map((sr, idx) =>
       recalculateRow({
-        id: `row-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
+        id: `row-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
         rowOrder: rows.length + idx + 1,
         date: today,
         clientName: targetClient.trim(),
@@ -390,7 +399,6 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      // Split by tab (if TSV) or comma (if CSV)
       const cols = line.includes("\t")
         ? line.split("\t").map((c) => c.trim().replace(/^["']|["']$/g, ""))
         : line.split(",").map((c) => c.trim().replace(/^["']|["']$/g, ""));
@@ -406,7 +414,6 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
         continue;
       }
 
-      // Check if this matches Google Sheet "_Notebook Size's @26L" format
       const hasDateAt0 = /\d{1,4}[-/.]\d{1,2}[-/.]\d{2,4}/.test(cols[0]);
       const hasDimAt6and7 = !isNaN(parseFloat(cols[6])) && !isNaN(parseFloat(cols[7]));
       const isGoogleSheetLayout = cols.length >= 10 && (hasDateAt0 || hasDimAt6and7);
@@ -415,7 +422,7 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
       let client = "Client";
       let flat = "";
       let building = "";
-      let category = "";
+      let category = "Aluminium";
       let state = "Karnataka";
       let factory = "Veera Glass";
       let status = "Draft";
@@ -431,7 +438,7 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
         flat = cols[1] || "";
         client = cols[2] || "Customer";
         building = cols[3] || "";
-        category = cols[4] || "";
+        category = cols[4] || "Aluminium";
         desc = cols[5] || cols[4] || "Al Shutters 565";
         height = parseFloat(cols[6]) || 1000;
         width = parseFloat(cols[7]) || 500;
@@ -456,7 +463,7 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
         notes = cols[11] || "";
       }
 
-      // Normalization of item names and rates based on catalog
+      // Catalog normalization
       const matchedProd = products.find(
         (p) => p.name.toLowerCase() === desc.toLowerCase() || p.code?.toLowerCase() === desc.toLowerCase()
       );
@@ -482,7 +489,7 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
       }
 
       const row = recalculateRow({
-        id: `row-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 4)}`,
+        id: `row-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 6)}`,
         rowOrder: rows.length + i + 1,
         date: rowDate,
         clientName: client,
@@ -507,7 +514,7 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
     return parsed;
   }, [products, recalculateRow, rows.length]);
 
-  // Paste from Excel / Google Sheets
+  // Paste handler
   const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
     const clipData = e.clipboardData.getData("text");
     if (!clipData || (!clipData.includes("\t") && !clipData.includes("\n"))) {
@@ -578,7 +585,7 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleUndo, handleRedo, handleFillDown]);
 
-  // Unique customer names for filter
+  // Unique customer names
   const customerList = useMemo(() => {
     const list = Array.from(new Set(rows.map((r) => r.clientName).filter(Boolean)));
     return list.sort();
@@ -608,7 +615,7 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
     });
   }, [rows, filterCustomer, searchQuery, filterFactory, filterStatus, filterState]);
 
-  // Auto-grouped quotes (Client + Flat + Building)
+  // Auto-grouped quotes
   const groupedQuotes = useMemo(() => {
     return groupRowsByCustomer(rows);
   }, [rows]);
@@ -620,11 +627,11 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
   }, [filterCustomer, filteredRows]);
 
   const activeFlat = useMemo(() => {
-    return filteredRows[0]?.flat || "27.00";
+    return filteredRows[0]?.flat || "27";
   }, [filteredRows]);
 
   const activeBuilding = useMemo(() => {
-    return filteredRows[0]?.building || "Al.";
+    return filteredRows[0]?.building || "Main Building";
   }, [filteredRows]);
 
   const activeDate = useMemo(() => {
@@ -633,8 +640,8 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
 
   // Active Quote Number
   const activeQuoteNumber = useMemo(() => {
-    const cleanDate = (activeDate || "070926").replace(/[-/.]/g, "").slice(0, 6);
-    const cleanFlat = (activeFlat || "27").replace(/[^0-9a-zA-Z]/g, "").slice(0, 4);
+    const cleanDate = (activeDate || "070926").replace(/[-/.]/g, "").substring(0, 6);
+    const cleanFlat = (activeFlat || "27").replace(/[^0-9a-zA-Z]/g, "").substring(0, 4);
     return `QT-${cleanDate || "231026"}-${cleanFlat || "27"}`;
   }, [activeDate, activeFlat]);
 
@@ -723,192 +730,215 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans select-none" onPaste={handlePaste}>
-      {/* 1. Google Sheets App Header & Ribbon */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
-        <div className="px-4 py-1.5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* Google Sheets Green Icon */}
-            <div className="w-9 h-9 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-xs">
-              <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
-                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" />
-              </svg>
-            </div>
-
-            <div>
-              {/* Document Title & Status */}
-              <div className="flex items-center gap-2">
-                <h1 className="text-base font-semibold text-slate-900 leading-none">
-                  &ldquo;GCE Meas_42&rdquo;
-                </h1>
-                <span className="text-slate-400 text-xs cursor-pointer hover:text-amber-500" title="Star document">★</span>
-                <span className="text-slate-400 text-xs" title="Save state">
-                  {saveStatus === "saving" ? "⏳ Saving..." : saveStatus === "saved" ? "☁️ ✓" : "⚠️"}
-                </span>
-                <span className="px-1.5 py-0.2 bg-slate-100 text-[10px] font-mono text-slate-500 rounded border border-slate-200">
-                  Live Sync
-                </span>
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans" onPaste={handlePaste}>
+      {/* ============================================================== */}
+      {/* 1. ENTERPRISE HEADER & APPLICATION NAVIGATION                   */}
+      {/* ============================================================== */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
+        <div className="max-w-[99%] mx-auto px-4 h-16 flex items-center justify-between gap-4">
+          {/* Brand & Main Identity */}
+          <div className="flex items-center gap-4">
+            <Link href="/" className="flex items-center gap-3 group">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-black text-lg shadow-sm group-hover:scale-105 transition-transform">
+                GC
               </div>
-
-              {/* Standard Menu Bar */}
-              <div className="flex items-center gap-2 text-xs text-slate-600 mt-1">
-                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">File</span>
-                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">Edit</span>
-                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">View</span>
-                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">Insert</span>
-                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">Format</span>
-                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">Data</span>
-                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">Tools</span>
-                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">Extensions</span>
-                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">Help</span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-extrabold text-base text-slate-900 tracking-tight leading-none">
+                    Glass Care Enterprises
+                  </span>
+                  <span className="px-2 py-0.5 text-[10px] font-bold bg-blue-50 text-blue-700 rounded-full border border-blue-200">
+                    ERP Estimator
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Professional Aluminium &amp; Glass Quotation Suite • Near Nagwara, Bangalore
+                </p>
               </div>
-            </div>
+            </Link>
+
+            {/* Global Navigation Links */}
+            <nav className="hidden xl:flex items-center gap-1 ml-4 pl-4 border-l border-slate-200 text-xs font-semibold">
+              <span className="px-3 py-1.5 bg-blue-600 text-white rounded-lg shadow-2xs font-bold cursor-default">
+                Estimator &amp; Sheet
+              </span>
+              <Link href="/quotes" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition">
+                Quotes Registry
+              </Link>
+              <Link href="/factory" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition">
+                Factory Indent
+              </Link>
+              <Link href="/payments" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition">
+                Payments
+              </Link>
+              <Link href="/dashboard" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition">
+                Dashboard
+              </Link>
+              <Link href="/customers" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition">
+                Customers
+              </Link>
+              <Link href="/settings" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition">
+                Settings
+              </Link>
+            </nav>
           </div>
 
-          {/* Right Toolbar Actions */}
+          {/* Quick Toolbar Actions */}
           <div className="flex items-center gap-2.5">
-            {/* Quick Customer Switcher */}
-            <div className="flex items-center gap-1.5 bg-blue-50/80 px-2 py-1 rounded-lg border border-blue-200">
-              <span className="text-[11px] font-bold text-blue-800">Customer:</span>
-              <select
-                value={filterCustomer}
-                onChange={(e) => {
-                  setFilterCustomer(e.target.value);
-                  showToast(e.target.value === "ALL" ? "Showing all customers" : `Viewing ${e.target.value}`);
-                }}
-                className="text-xs font-bold bg-white text-blue-950 border border-blue-300 rounded px-2 py-0.5 focus:outline-none cursor-pointer"
-              >
-                <option value="ALL">👤 All Customers ({customerList.length})</option>
-                {customerList.map((c) => (
-                  <option key={c} value={c}>
-                    👤 {c}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={() => setNewClientModalOpen(true)}
-                className="px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-bold shadow-xs transition flex items-center gap-1 cursor-pointer"
-                title="Create a new client with their own quotation"
-              >
-                <span>+</span>
-                <span>New</span>
-              </button>
+            {/* Live Autosave Indicator */}
+            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs">
+              <span className={`w-2 h-2 rounded-full ${saveStatus === "saving" ? "bg-amber-500 animate-ping" : saveStatus === "saved" ? "bg-emerald-500" : "bg-red-500"}`}></span>
+              <span className="text-slate-600 font-medium text-[11px]">
+                {saveStatus === "saving" ? "Saving..." : lastSavedTime ? `Saved at ${lastSavedTime}` : "Database Synced"}
+              </span>
             </div>
-
-            {/* Batch Generate Quotes */}
-            <button
-              onClick={handleBatchGenerateQuotes}
-              disabled={isGeneratingQuote}
-              className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold rounded-lg shadow-xs transition flex items-center gap-1.5 disabled:opacity-50"
-              title="Generate official quotes for all customers in sheet"
-            >
-              <span>⚡</span>
-              <span>Batch Generate</span>
-            </button>
-
-            {/* Official PDF */}
-            <button
-              onClick={() => {
-                const targetGrp = groupedQuotes.find((g) => g.clientName === activeCustomer) || groupedQuotes[0];
-                if (targetGrp) handleCreateOfficialQuote(targetGrp);
-              }}
-              disabled={isGeneratingQuote}
-              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-xs transition flex items-center gap-1.5 disabled:opacity-50"
-              title="Save as official quotation"
-            >
-              <span>📄</span>
-              <span>Save Quote</span>
-            </button>
-
-            {/* Share via WhatsApp */}
-            <button
-              onClick={() => {
-                const waText = encodeURIComponent(
-                  `*GLASS CARE ENTERPRISES - QUOTATION*\nCustomer: ${activeCustomer}\nFlat: ${activeFlat}\nQuote No: ${activeQuoteNumber}\nTotal Amount: ${formatIndianCurrency(overallTotals.displayTotal)}\nSub Total: ${formatIndianCurrency(overallTotals.subTotal)}\nGST 18%: ${formatIndianCurrency(overallTotals.gst)}\n\nThank you for choosing Glass Care Enterprises!`
-                );
-                window.open(`https://wa.me/?text=${waText}`, "_blank");
-              }}
-              className="px-2.5 py-1.5 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-300 rounded-lg text-xs font-bold transition flex items-center gap-1"
-            >
-              <span>💬</span>
-              <span>WhatsApp</span>
-            </button>
-
-            {/* User Avatar */}
-            <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs ml-1">
-              GCE
-            </div>
-          </div>
-        </div>
-
-        {/* 2. Secondary Ribbon: Formatting & Action Buttons */}
-        <div className="bg-[#edf2fa] px-4 py-1 border-t border-slate-200 flex flex-wrap items-center justify-between text-xs text-slate-700">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleUndo}
-              disabled={historyIndex <= 0}
-              className="px-2 py-0.5 rounded hover:bg-white text-slate-700 disabled:opacity-30 cursor-pointer"
-              title="Undo (Ctrl+Z)"
-            >
-              ↩
-            </button>
-            <button
-              onClick={handleRedo}
-              disabled={historyIndex >= history.length - 1}
-              className="px-2 py-0.5 rounded hover:bg-white text-slate-700 disabled:opacity-30 cursor-pointer"
-              title="Redo (Ctrl+Y)"
-            >
-              ↪
-            </button>
-            <span className="text-slate-300">|</span>
 
             {/* Import Button */}
             <button
               onClick={() => setImportModalOpen(true)}
-              className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 rounded font-semibold transition flex items-center gap-1"
-              title="Import 100s or 1,000s of rows from Google Sheets or Excel"
+              className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold shadow-2xs transition flex items-center gap-1.5 cursor-pointer"
+              title="Import rows from Excel or CSV"
             >
               <span>📥</span>
               <span>Import Sheet</span>
             </button>
 
-            {/* Fill Down Button */}
+            {/* New Client Button */}
+            <button
+              onClick={() => setNewClientModalOpen(true)}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>+</span>
+              <span>New Client</span>
+            </button>
+
+            {/* Batch Generate Quotes */}
+            <button
+              onClick={handleBatchGenerateQuotes}
+              disabled={isGeneratingQuote || groupedQuotes.length === 0}
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              title="Generate official quotes for all clients"
+            >
+              <span>⚡</span>
+              <span>Batch Generate</span>
+            </button>
+          </div>
+        </div>
+
+        {/* ============================================================== */}
+        {/* 2. MULTI-CLIENT SWITCHER & FILTER BAR                          */}
+        {/* ============================================================== */}
+        <div className="bg-slate-100/80 px-4 py-2 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+          {/* Client Navigation Pills */}
+          <div className="flex items-center gap-1.5 overflow-x-auto max-w-full pb-0.5">
+            <span className="font-bold text-slate-500 text-[11px] uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
+              <span>Clients:</span>
+            </span>
+
+            <button
+              onClick={() => {
+                setFilterCustomer("ALL");
+                showToast("Viewing all clients");
+              }}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition shrink-0 cursor-pointer ${
+                filterCustomer === "ALL"
+                  ? "bg-slate-900 text-white shadow-xs"
+                  : "bg-white text-slate-700 hover:bg-slate-200 border border-slate-300"
+              }`}
+            >
+              All Clients ({rows.length})
+            </button>
+
+            {customerList.map((c) => {
+              const count = rows.filter((r) => r.clientName === c).length;
+              const isCurrent = filterCustomer === c;
+              return (
+                <button
+                  key={c}
+                  onClick={() => {
+                    setFilterCustomer(c);
+                    showToast(`Active client: ${c}`);
+                  }}
+                  className={`px-3 py-1 rounded-full text-xs font-bold transition shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                    isCurrent
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "bg-white text-slate-700 hover:bg-slate-200 border border-slate-300"
+                  }`}
+                >
+                  <span>👤 {c}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${isCurrent ? "bg-blue-800 text-white" : "bg-slate-100 text-slate-600"}`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+
+            <button
+              onClick={() => setNewClientModalOpen(true)}
+              className="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition shrink-0 flex items-center gap-1 cursor-pointer"
+            >
+              <span>+</span>
+              <span>Add Client</span>
+            </button>
+          </div>
+
+          {/* Grid View Controls & Filters */}
+          <div className="flex items-center gap-2">
+            {/* Undo / Redo */}
+            <div className="flex items-center bg-white border border-slate-300 rounded-lg p-0.5 shadow-2xs">
+              <button
+                onClick={handleUndo}
+                disabled={historyIndex <= 0}
+                className="px-2 py-0.5 text-slate-700 hover:bg-slate-100 rounded disabled:opacity-30 cursor-pointer"
+                title="Undo (Ctrl+Z)"
+              >
+                ↩
+              </button>
+              <button
+                onClick={handleRedo}
+                disabled={historyIndex >= history.length - 1}
+                className="px-2 py-0.5 text-slate-700 hover:bg-slate-100 rounded disabled:opacity-30 cursor-pointer"
+                title="Redo (Ctrl+Y)"
+              >
+                ↪
+              </button>
+            </div>
+
+            {/* Fill Down */}
             <button
               onClick={handleFillDown}
               disabled={!selectedRowId}
-              className="px-2.5 py-1 bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 rounded font-medium disabled:opacity-30 transition"
-              title="Fill Down (Ctrl+D): copy previous row"
+              className="px-2.5 py-1 bg-white hover:bg-blue-50 text-blue-700 border border-blue-300 rounded-lg text-xs font-semibold disabled:opacity-30 transition cursor-pointer"
+              title="Fill Down (Ctrl+D)"
             >
               ↓ Fill Down
             </button>
 
-            {/* Add Row Button */}
+            {/* Add Measurement Row */}
             <button
               onClick={handleAddRow}
-              className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded font-medium transition"
+              className="px-3 py-1 bg-white hover:bg-slate-50 text-slate-900 border border-slate-300 rounded-lg text-xs font-bold transition cursor-pointer shadow-2xs"
             >
               + Add Row
             </button>
 
-            <span className="text-slate-300">|</span>
-
-            {/* Search Box */}
+            {/* Search Input */}
             <div className="relative">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search measurement rows..."
-                className="w-52 pl-6 pr-2 py-0.5 text-xs bg-white border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                placeholder="Search items, sizes..."
+                className="w-44 pl-7 pr-2.5 py-1 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
-              <span className="absolute left-1.5 top-1 text-slate-400 text-xs">🔍</span>
+              <span className="absolute left-2 top-1.5 text-slate-400 text-xs">🔍</span>
             </div>
 
-            {/* Factory Filter */}
+            {/* Factory Selector */}
             <select
               value={filterFactory}
               onChange={(e) => setFilterFactory(e.target.value)}
-              className="px-2 py-0.5 text-xs bg-white border border-slate-300 rounded cursor-pointer"
+              className="px-2 py-1 text-xs bg-white border border-slate-300 rounded-lg cursor-pointer"
             >
               <option value="ALL">All Factories</option>
               {factories.map((f) => (
@@ -918,11 +948,11 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
               ))}
             </select>
 
-            {/* Status Filter */}
+            {/* Status Selector */}
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-2 py-0.5 text-xs bg-white border border-slate-300 rounded cursor-pointer"
+              className="px-2 py-1 text-xs bg-white border border-slate-300 rounded-lg cursor-pointer"
             >
               <option value="ALL">All Statuses</option>
               <option value="Draft">Draft</option>
@@ -931,674 +961,514 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
               <option value="Delivered">Delivered</option>
             </select>
 
-            {/* State Filter */}
+            {/* State Selector */}
             <select
               value={filterState}
               onChange={(e) => setFilterState(e.target.value)}
-              className="px-2 py-0.5 text-xs bg-white border border-slate-300 rounded cursor-pointer"
+              className="px-2 py-1 text-xs bg-white border border-slate-300 rounded-lg cursor-pointer"
             >
               <option value="ALL">All States</option>
               <option value="Karnataka">Karnataka</option>
               <option value="Tamil Nadu">Tamil Nadu</option>
               <option value="Maharashtra">Maharashtra</option>
             </select>
-          </div>
 
-          <div className="flex items-center gap-3 text-xs">
-            <span className="text-slate-500 font-mono text-[11px]">
-              {lastSavedTime ? `Autosaved at ${lastSavedTime}` : "Auto-saving to SQLite"}
-            </span>
-            <div className="inline-flex rounded border border-slate-300 bg-white p-0.5">
+            {/* View Mode Switcher */}
+            <div className="inline-flex rounded-lg border border-slate-300 bg-white p-0.5">
               <button
                 onClick={() => setActiveTab("sheet")}
-                className={`px-2.5 py-0.5 rounded text-xs font-semibold ${
-                  activeTab === "sheet" ? "bg-emerald-600 text-white" : "text-slate-600 hover:text-slate-900"
+                className={`px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
+                  activeTab === "sheet" ? "bg-blue-600 text-white shadow-2xs" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                _Notebook Size&apos;s @26L
+                Measurement Sheet ({rows.length})
               </button>
               <button
                 onClick={() => setActiveTab("quotes")}
-                className={`px-2.5 py-0.5 rounded text-xs font-semibold ${
-                  activeTab === "quotes" ? "bg-emerald-600 text-white" : "text-slate-600 hover:text-slate-900"
+                className={`px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
+                  activeTab === "quotes" ? "bg-blue-600 text-white shadow-2xs" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                _Notelist @26 ({groupedQuotes.length})
+                Client Quotations ({groupedQuotes.length})
               </button>
             </div>
           </div>
         </div>
-
-        {/* 3. Formula Bar (fx) */}
-        <div className="bg-white px-4 py-1 border-t border-slate-200 flex items-center gap-2 text-xs">
-          <div className="w-16 font-mono text-center font-bold text-slate-600 border-r border-slate-200 pr-2">
-            {activeCellCoord}
-          </div>
-          <span className="font-serif italic font-bold text-slate-400 text-sm">fx</span>
-          <div className="flex-1 font-mono text-slate-700 bg-slate-50 px-2 py-0.5 rounded border border-slate-200 text-xs truncate">
-            {activeCellValue}
-          </div>
-        </div>
-
-        {/* 4. Multi-Client Switcher Pills */}
-        <div className="bg-[#f0f4f9] px-4 py-1.5 border-t border-slate-200 flex items-center gap-1.5 overflow-x-auto text-xs">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
-            <span>👥 Clients:</span>
-          </span>
-
-          <button
-            onClick={() => {
-              setFilterCustomer("ALL");
-              showToast("Showing all clients");
-            }}
-            className={`px-2.5 py-0.5 rounded-full font-bold text-[11px] transition shrink-0 cursor-pointer ${
-              filterCustomer === "ALL"
-                ? "bg-blue-600 text-white shadow-2xs"
-                : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200"
-            }`}
-          >
-            All Clients ({rows.length} rows)
-          </button>
-
-          {customerList.map((c) => {
-            const count = rows.filter((r) => r.clientName === c).length;
-            const isCurrent = filterCustomer === c;
-            return (
-              <button
-                key={c}
-                onClick={() => {
-                  setFilterCustomer(c);
-                  showToast(`Switched to client: ${c}`);
-                }}
-                className={`px-2.5 py-0.5 rounded-full font-bold text-[11px] transition shrink-0 flex items-center gap-1.5 cursor-pointer ${
-                  isCurrent
-                    ? "bg-emerald-600 text-white shadow-2xs"
-                    : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200"
-                }`}
-              >
-                <span>👤 {c}</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isCurrent ? "bg-emerald-700 text-white" : "bg-slate-100 text-slate-600 font-mono"}`}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-
-          <button
-            onClick={() => setNewClientModalOpen(true)}
-            className="px-2.5 py-0.5 rounded-full font-bold text-[11px] bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 transition shrink-0 flex items-center gap-1 cursor-pointer"
-            title="Create a new client with their own measurements"
-          >
-            <span>+</span>
-            <span>Add Client</span>
-          </button>
-        </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 p-3 overflow-x-auto">
+      {/* ============================================================== */}
+      {/* 3. MAIN WORKSPACE AREA                                         */}
+      {/* ============================================================== */}
+      <main className="flex-1 max-w-[99%] mx-auto w-full p-4 space-y-4">
         {activeTab === "sheet" ? (
-          <div className="bg-white rounded-lg border border-slate-300 shadow-sm inline-block min-w-full">
-            {/* ============================================================== */}
-            {/* EXACT GOOGLE SHEET QUOTE HEADER (Rows 1 to 6)                  */}
-            {/* ============================================================== */}
-            <div className="p-3 border-b-2 border-slate-300 bg-[#fdfdfd]">
-              <div className="grid grid-cols-12 gap-3 items-stretch">
-                {/* 1. GCE LOGO (A1:D5) */}
-                <div
-                  className="col-span-12 lg:col-span-3 border-2 border-blue-400 rounded-lg p-3 bg-white flex items-center justify-center gap-3 shadow-2xs cursor-pointer hover:border-blue-500"
-                  onClick={() => {
-                    setActiveCellCoord("A1:D4");
-                    setActiveCellValue("GLASS CARE ENTERPRISES - FRAME YOUR VISION");
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    {/* Stylized colored bars matching user logo */}
-                    <div className="flex h-12 w-2.5 gap-0.5">
-                      <span className="w-1 h-full bg-amber-500 rounded-xs"></span>
-                      <span className="w-1 h-full bg-red-500 rounded-xs"></span>
-                      <span className="w-1 h-full bg-blue-600 rounded-xs"></span>
-                    </div>
-                    <div>
-                      <div className="text-xl font-black text-blue-900 tracking-wider leading-none">
-                        GC
-                      </div>
-                      <div className="text-[11px] font-bold text-blue-800 tracking-wider uppercase">
-                        ENTERPRISES
-                      </div>
-                      <div className="text-[9px] font-black text-orange-600 tracking-widest uppercase mt-0.5">
-                        FRAME YOUR VISION
-                      </div>
-                    </div>
+          <>
+            {/* ACTIVE CLIENT ESTIMATION SUMMARY CARD */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 bg-gradient-to-r from-blue-50/40 via-white to-indigo-50/30">
+              <div className="flex flex-wrap items-center justify-between gap-6">
+                {/* Client Profile Block */}
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-xl shadow-md">
+                    {activeCustomer.substring(0, 2).toUpperCase()}
                   </div>
-                </div>
-
-                {/* 2. COMPANY ADDRESS (E1:H5) */}
-                <div
-                  className="col-span-12 lg:col-span-3 border border-slate-300 rounded-lg p-3 bg-white flex flex-col justify-center text-center cursor-pointer hover:bg-slate-50"
-                  onClick={() => {
-                    setActiveCellCoord("E1:H4");
-                    setActiveCellValue("GLASS CARE ENTERPRISES, Near Nagwara, Manyata Tech Park, Contact: 7411415842");
-                  }}
-                >
-                  <h2 className="text-sm font-black tracking-wide text-slate-900">
-                    GLASS CARE ENTERPRISES
-                  </h2>
-                  <p className="text-xs text-slate-600 font-medium">Near Nagwara, Manyata Tech Park</p>
-                  <p className="text-xs text-slate-700 font-bold mt-0.5">Contact: 7411415842</p>
-                </div>
-
-                {/* 3. TOTALS BLOCK (J2:M5) */}
-                <div
-                  className="col-span-12 sm:col-span-4 lg:col-span-2 border border-slate-300 rounded-lg overflow-hidden bg-white text-xs cursor-pointer hover:border-blue-400"
-                  onClick={() => {
-                    setActiveCellCoord("J2:M4");
-                    setActiveCellValue(`Sub Total: ${overallTotals.subTotal.toFixed(2)}, GST: ${overallTotals.gst.toFixed(2)}, Grand Total: ${overallTotals.grandTotal.toFixed(2)}`);
-                  }}
-                >
-                  <div className="grid grid-cols-2 divide-x divide-y divide-slate-200">
-                    <div className="p-1.5 bg-[#f8fafc] font-bold text-slate-600 text-[11px]">Sub Total</div>
-                    <div className="p-1.5 text-right font-mono font-bold text-slate-800 text-[11px]">
-                      {overallTotals.subTotal.toFixed(2)}
-                    </div>
-                    <div className="p-1.5 bg-[#f8fafc] font-bold text-slate-600 text-[11px]">GST 18%</div>
-                    <div className="p-1.5 text-right font-mono font-bold text-slate-800 text-[11px]">
-                      {overallTotals.gst.toFixed(2)}
-                    </div>
-                    <div className="p-1.5 bg-blue-50 font-black text-blue-900 text-[11px]">Grand Total</div>
-                    <div className="p-1.5 text-right font-mono font-black text-blue-900 text-xs bg-blue-50/60">
-                      {overallTotals.grandTotal.toFixed(2)}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 4. CUSTOMER BLOCK (N2:P5) */}
-                <div
-                  className="col-span-12 sm:col-span-4 lg:col-span-2 border border-slate-300 rounded-lg overflow-hidden bg-white text-xs cursor-pointer hover:border-blue-400"
-                  onClick={() => {
-                    setActiveCellCoord("N2:P4");
-                    setActiveCellValue(`FLAT: ${activeFlat}, CUSTOMER: ${activeCustomer}, PROJECT: ${activeBuilding}`);
-                  }}
-                >
-                  <div className="grid grid-cols-2 divide-x divide-y divide-slate-200">
-                    <div className="p-1.5 bg-[#f8fafc] font-bold text-slate-600 text-[10px] uppercase">FLAT/HOUSE NO</div>
-                    <div className="p-1.5 font-mono font-bold text-slate-900 text-[11px] truncate">
-                      {activeFlat}
-                    </div>
-                    <div className="p-1.5 bg-[#f8fafc] font-bold text-slate-600 text-[10px] uppercase flex items-center justify-between">
-                      <span>CUSTOMER NAME</span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 bg-blue-100 text-blue-800 rounded">
+                        Active Quotation
+                      </span>
+                      <span className="text-xs text-slate-500 font-mono font-semibold">
+                        Ref: {activeQuoteNumber}
+                      </span>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDuplicateClient(activeCustomer);
-                        }}
-                        className="text-[9px] text-blue-600 hover:text-blue-800 underline font-normal cursor-pointer"
-                        title="Duplicate these measurements for a new client"
+                        onClick={() => handleDuplicateClient(activeCustomer)}
+                        className="text-[11px] text-blue-600 hover:text-blue-800 font-bold underline cursor-pointer"
+                        title="Duplicate window dimensions for a new client"
                       >
-                        Duplicate
+                        Duplicate for new client
                       </button>
                     </div>
-                    <div className="p-1.5 font-bold text-blue-950 text-[11px] truncate" title={activeCustomer}>
-                      {activeCustomer}
-                    </div>
-                    <div className="p-1.5 bg-[#f8fafc] font-bold text-slate-600 text-[10px] uppercase">PROJECT</div>
-                    <div className="p-1.5 font-semibold text-slate-800 text-[11px] truncate">
-                      {activeBuilding || "All"}
-                    </div>
+
+                    <h2 className="text-xl font-black text-slate-900 mt-1 flex items-center gap-2">
+                      <span>{activeCustomer}</span>
+                      {activeFlat && (
+                        <span className="text-sm font-semibold text-slate-500">
+                          (Flat: {activeFlat})
+                        </span>
+                      )}
+                    </h2>
+
+                    <p className="text-xs text-slate-500 font-medium">
+                      Site: <span className="font-bold text-slate-700">{activeBuilding || "Main Project"}</span> • State: <span className="font-bold text-slate-700">{filteredRows[0]?.state || "Karnataka"}</span> • {filteredRows.length} Line Items
+                    </p>
                   </div>
                 </div>
 
-                {/* 5. QUOTATION METADATA (R1:T5) */}
-                <div
-                  className="col-span-12 sm:col-span-4 lg:col-span-2 border border-slate-300 rounded-lg overflow-hidden bg-white text-xs cursor-pointer hover:border-blue-400"
-                  onClick={() => {
-                    setActiveCellCoord("R1:T4");
-                    setActiveCellValue(`QUOTE ${activeQuoteNumber} DATE: ${activeDate} VALID: 07/11/2026`);
-                  }}
-                >
-                  <div className="bg-slate-100 font-bold text-center py-0.5 border-b border-slate-300 text-[10px] tracking-wider text-slate-700">
-                    QUOTE
-                  </div>
-                  <div className="grid grid-cols-2 divide-x divide-y divide-slate-200 text-[10px]">
-                    <div className="p-1 bg-[#f8fafc] font-bold text-slate-600">DATE</div>
-                    <div className="p-1 font-mono font-medium text-slate-800">{activeDate}</div>
-                    <div className="p-1 bg-[#f8fafc] font-bold text-slate-600">QUOTE #</div>
-                    <div className="p-1 font-mono font-bold text-blue-800 truncate" title={activeQuoteNumber}>
-                      {activeQuoteNumber}
+                {/* Financial KPI Cards */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs divide-x divide-slate-100">
+                    <div className="px-3 text-right">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Sub Total</span>
+                      <span className="font-mono text-sm font-bold text-slate-800">
+                        {formatIndianCurrency(overallTotals.subTotal)}
+                      </span>
                     </div>
-                    <div className="p-1 bg-[#f8fafc] font-bold text-slate-600">VALID</div>
-                    <div className="p-1 font-mono font-medium text-slate-800">07/11/2026</div>
+
+                    <div className="px-3 text-right">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">GST 18%</span>
+                      <span className="font-mono text-sm font-bold text-slate-800">
+                        {formatIndianCurrency(overallTotals.gst)}
+                      </span>
+                    </div>
+
+                    <div className="px-4 text-right bg-blue-50/60 rounded-lg">
+                      <span className="text-[10px] font-black text-blue-700 uppercase tracking-wider block">Grand Total</span>
+                      <span className="font-mono text-xl font-black text-blue-900">
+                        {formatIndianCurrency(overallTotals.displayTotal)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Actions for active client */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        const targetGrp = groupedQuotes.find((g) => g.clientName === activeCustomer) || groupedQuotes[0];
+                        if (targetGrp) handleCreateOfficialQuote(targetGrp);
+                      }}
+                      disabled={isGeneratingQuote}
+                      className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                      title="Save as official quote in database"
+                    >
+                      <span>📄</span>
+                      <span>Save as Official Quote</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const waText = encodeURIComponent(
+                          `*GLASS CARE ENTERPRISES - QUOTATION*\nCustomer: ${activeCustomer}\nFlat: ${activeFlat}\nQuote No: ${activeQuoteNumber}\nTotal Amount: ${formatIndianCurrency(overallTotals.displayTotal)}\nSub Total: ${formatIndianCurrency(overallTotals.subTotal)}\nGST 18%: ${formatIndianCurrency(overallTotals.gst)}\n\nThank you for choosing Glass Care Enterprises!`
+                        );
+                        window.open(`https://wa.me/?text=${waText}`, "_blank");
+                      }}
+                      className="px-3 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                      title="Share quote summary via WhatsApp"
+                    >
+                      <span>💬</span>
+                      <span>WhatsApp</span>
+                    </button>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* ============================================================== */}
-            {/* EXACT GOOGLE SHEET TABLE WITH ALL 22 COLUMNS                   */}
-            {/* ============================================================== */}
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-xs font-sans">
-                {/* ROW 7: EXACT COLORED HEADERS */}
-                <thead>
-                  <tr className="border-b-2 border-slate-400 text-slate-800 font-bold text-[11px] select-none text-center">
-                    {/* Row Number Header */}
-                    <th className="w-12 bg-slate-200 border-r border-slate-300 py-1.5 text-center text-slate-500 font-mono text-[10px]">
-                      7
-                    </th>
+            {/* ADVANCED MEASUREMENT & CALCULATION GRID */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold text-[11px] uppercase tracking-wider select-none">
+                      <th className="py-3 px-2 text-center w-10">#</th>
+                      <th className="py-3 px-2 min-w-[95px]">Date</th>
+                      <th className="py-3 px-2 min-w-[70px]">Flat</th>
+                      <th className="py-3 px-3 min-w-[130px]">Client Name</th>
+                      <th className="py-3 px-2 min-w-[110px]">Project Site</th>
+                      <th className="py-3 px-2 min-w-[110px]">Category</th>
+                      <th className="py-3 px-3 min-w-[150px]">Product / Item</th>
+                      <th className="py-3 px-2 text-right min-w-[75px] bg-amber-50/50">Frame H</th>
+                      <th className="py-3 px-2 text-right min-w-[75px] bg-amber-50/50">Frame W</th>
+                      <th className="py-3 px-2 text-right min-w-[80px] bg-amber-100/40">Round H</th>
+                      <th className="py-3 px-2 text-right min-w-[80px] bg-amber-100/40">Round W</th>
+                      <th className="py-3 px-2 text-center w-12 bg-emerald-50/50">Qty</th>
+                      <th className="py-3 px-2 text-right min-w-[65px]">R.Ft</th>
+                      <th className="py-3 px-2 text-right min-w-[75px] bg-yellow-50 font-black text-amber-950">Sqft</th>
+                      <th className="py-3 px-2 text-right min-w-[75px] bg-yellow-50 font-black text-amber-950">Rate (₹)</th>
+                      <th className="py-3 px-2 min-w-[95px]">State</th>
+                      <th className="py-3 px-1 text-center w-14">GST %</th>
+                      <th className="py-3 px-2 text-right min-w-[80px] bg-orange-50 font-bold text-orange-900">GST (₹)</th>
+                      <th className="py-3 px-2 text-right min-w-[85px] bg-orange-50 font-black text-orange-950">Net (₹)</th>
+                      <th className="py-3 px-2 min-w-[110px]">Factory</th>
+                      <th className="py-3 px-2 min-w-[100px]">Status</th>
+                      <th className="py-3 px-2 text-right min-w-[75px] bg-blue-50/40">Glass H (-7)</th>
+                      <th className="py-3 px-2 text-right min-w-[75px] bg-blue-50/40">Glass W (-7)</th>
+                      <th className="py-3 px-2 text-center w-14">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-sans">
+                    {filteredRows.map((r, idx) => {
+                      const isSelected = selectedRowId === r.id;
+                      return (
+                        <tr
+                          key={r.id}
+                          onClick={() => setSelectedRowId(r.id)}
+                          className={`hover:bg-blue-50/40 transition text-xs ${isSelected ? "bg-blue-50/80 ring-1 ring-blue-400" : ""}`}
+                        >
+                          {/* Row Number */}
+                          <td className="py-2 px-2 text-center text-slate-400 font-mono text-[11px] select-none">
+                            {idx + 1}
+                          </td>
 
-                    {/* Col A: Date */}
-                    <th className="bg-[#eef2e6] border-r border-slate-300 py-2 px-2 min-w-[95px] text-left">
-                      Date
-                    </th>
+                          {/* Date */}
+                          <td className="py-1 px-1">
+                            <input
+                              type="text"
+                              value={r.date || "07/09/2026"}
+                              onChange={(e) => handleCellChange(r.id, { date: e.target.value })}
+                              className="w-full px-1.5 py-1 text-xs border border-transparent hover:border-slate-300 focus:border-blue-500 rounded bg-transparent focus:bg-white font-mono"
+                            />
+                          </td>
 
-                    {/* Col B: Flat no/ Loc */}
-                    <th className="bg-[#eef2e6] border-r border-slate-300 py-2 px-2 min-w-[85px] text-left">
-                      <span className="flex items-center justify-between">
-                        <span>Flat no/ Loc</span>
-                        <span className="text-[10px] text-slate-400">▼</span>
-                      </span>
-                    </th>
+                          {/* Flat */}
+                          <td className="py-1 px-1">
+                            <input
+                              type="text"
+                              value={r.flat}
+                              onChange={(e) => handleCellChange(r.id, { flat: e.target.value })}
+                              placeholder="Flat"
+                              className="w-full px-1.5 py-1 text-xs border border-transparent hover:border-slate-300 focus:border-blue-500 rounded bg-transparent focus:bg-white font-mono"
+                            />
+                          </td>
 
-                    {/* Col C: Client 'Name's' */}
-                    <th className="bg-[#d9ead3] border-r border-slate-300 py-2 px-2 min-w-[130px] text-left text-emerald-950 font-black">
-                      <span className="flex items-center justify-between">
-                        <span>Client &lsquo;Name&apos;s&rsquo;</span>
-                        <span className="text-[10px] text-emerald-700">▼</span>
-                      </span>
-                    </th>
+                          {/* Client Name */}
+                          <td className="py-1 px-1">
+                            <input
+                              type="text"
+                              value={r.clientName}
+                              onChange={(e) => handleCellChange(r.id, { clientName: e.target.value })}
+                              placeholder="Client name"
+                              className="w-full px-2 py-1 text-xs font-bold text-slate-900 border border-transparent hover:border-slate-300 focus:border-blue-500 rounded bg-transparent focus:bg-white"
+                            />
+                          </td>
 
-                    {/* Col D: Appt/Building Name */}
-                    <th className="bg-[#eef2e6] border-r border-slate-300 py-2 px-2 min-w-[110px] text-left">
-                      Appt/Building Name
-                    </th>
+                          {/* Building / Project */}
+                          <td className="py-1 px-1">
+                            <input
+                              type="text"
+                              value={r.building}
+                              onChange={(e) => handleCellChange(r.id, { building: e.target.value })}
+                              placeholder="Building / Site"
+                              className="w-full px-1.5 py-1 text-xs border border-transparent hover:border-slate-300 focus:border-blue-500 rounded bg-transparent focus:bg-white"
+                            />
+                          </td>
 
-                    {/* Col E: Product Category */}
-                    <th className="bg-[#f3f4f6] border-r border-slate-300 py-2 px-2 min-w-[110px] text-left">
-                      Product Category
-                    </th>
+                          {/* Category */}
+                          <td className="py-1 px-1">
+                            <input
+                              type="text"
+                              value={r.category || "Aluminium"}
+                              onChange={(e) => handleCellChange(r.id, { category: e.target.value })}
+                              placeholder="Category"
+                              className="w-full px-1.5 py-1 text-xs border border-transparent hover:border-slate-300 focus:border-blue-500 rounded bg-transparent focus:bg-white text-slate-600"
+                            />
+                          </td>
 
-                    {/* Col F: Item Name */}
-                    <th className="bg-[#f3f4f6] border-r border-slate-300 py-2 px-2 min-w-[140px] text-left">
-                      Item Name
-                    </th>
+                          {/* Product / Description */}
+                          <td className="py-1 px-1">
+                            <input
+                              type="text"
+                              value={r.description}
+                              onChange={(e) => handleCellChange(r.id, { description: e.target.value })}
+                              placeholder="Item description"
+                              className="w-full px-2 py-1 text-xs font-semibold text-slate-800 border border-transparent hover:border-slate-300 focus:border-blue-500 rounded bg-transparent focus:bg-white"
+                            />
+                          </td>
 
-                    {/* Col G: Frame H */}
-                    <th className="bg-[#fff2cc] border-r border-slate-300 py-2 px-1 min-w-[70px] text-right">
-                      Fr am e H
-                    </th>
+                          {/* Frame H */}
+                          <td className="py-1 px-1 bg-amber-50/30">
+                            <input
+                              type="number"
+                              value={r.frameHeightMm || ""}
+                              onChange={(e) => handleCellChange(r.id, { frameHeightMm: parseFloat(e.target.value) || 0 })}
+                              className="w-full px-1.5 py-1 text-xs text-right font-mono font-medium border border-transparent hover:border-slate-300 focus:border-blue-500 rounded bg-transparent focus:bg-white"
+                            />
+                          </td>
 
-                    {/* Col H: Frame W */}
-                    <th className="bg-[#fff2cc] border-r border-slate-300 py-2 px-1 min-w-[70px] text-right">
-                      Fr am e W
-                    </th>
+                          {/* Frame W */}
+                          <td className="py-1 px-1 bg-amber-50/30">
+                            <input
+                              type="number"
+                              value={r.frameWidthMm || ""}
+                              onChange={(e) => handleCellChange(r.id, { frameWidthMm: parseFloat(e.target.value) || 0 })}
+                              className="w-full px-1.5 py-1 text-xs text-right font-mono font-medium border border-transparent hover:border-slate-300 focus:border-blue-500 rounded bg-transparent focus:bg-white"
+                            />
+                          </td>
 
-                    {/* Col I: Round of H 76.2 */}
-                    <th className="bg-[#fff2cc] border-r border-slate-300 py-2 px-1 min-w-[75px] text-right">
-                      Rou of H 76.2
-                    </th>
+                          {/* Rounded H (76.2mm) */}
+                          <td className="py-2 px-2 text-right font-mono text-slate-600 bg-amber-100/20">
+                            {r.roundedHeightMm}
+                          </td>
 
-                    {/* Col J: Round of W */}
-                    <th className="bg-[#fff2cc] border-r border-slate-300 py-2 px-1 min-w-[75px] text-right">
-                      Rou of W
-                    </th>
+                          {/* Rounded W (76.2mm) */}
+                          <td className="py-2 px-2 text-right font-mono text-slate-600 bg-amber-100/20">
+                            {r.roundedWidthMm}
+                          </td>
 
-                    {/* Col K: Qty */}
-                    <th className="bg-[#e2efda] border-r border-slate-300 py-2 px-1 min-w-[50px] text-center">
-                      Qty
-                    </th>
+                          {/* Qty */}
+                          <td className="py-1 px-1 bg-emerald-50/30">
+                            <input
+                              type="number"
+                              min="1"
+                              value={r.quantity || ""}
+                              onChange={(e) => handleCellChange(r.id, { quantity: parseInt(e.target.value, 10) || 1 })}
+                              className="w-full px-1 py-1 text-xs text-center font-mono font-bold border border-transparent hover:border-slate-300 focus:border-blue-500 rounded bg-transparent focus:bg-white"
+                            />
+                          </td>
 
-                    {/* Col L: R.ft */}
-                    <th className="bg-[#e2efda] border-r border-slate-300 py-2 px-1 min-w-[55px] text-right">
-                      R.ft
-                    </th>
+                          {/* R.Ft */}
+                          <td className="py-2 px-2 text-right font-mono text-slate-600">
+                            {r.runningFeet.toFixed(1)}
+                          </td>
 
-                    {/* Col M: Size Sqft */}
-                    <th className="bg-[#ffd966] border-r border-slate-300 py-2 px-1 min-w-[65px] text-right font-black text-amber-950">
-                      Size Sqft
-                    </th>
+                          {/* Sqft */}
+                          <td className="py-2 px-2 text-right font-mono font-bold text-slate-900 bg-yellow-50/60">
+                            {r.sqft.toFixed(3)}
+                          </td>
 
-                    {/* Col N: Rate */}
-                    <th className="bg-[#ffd966] border-r border-slate-300 py-2 px-1 min-w-[65px] text-right font-black text-amber-950">
-                      Rate
-                    </th>
+                          {/* Rate */}
+                          <td className="py-1 px-1 bg-yellow-50/60">
+                            <input
+                              type="number"
+                              value={r.rate || ""}
+                              onChange={(e) => handleCellChange(r.id, { rate: parseFloat(e.target.value) || 0 })}
+                              className="w-full px-1.5 py-1 text-xs text-right font-mono font-bold text-slate-900 border border-transparent hover:border-slate-300 focus:border-blue-500 rounded bg-transparent focus:bg-white"
+                            />
+                          </td>
 
-                    {/* Col O: State */}
-                    <th className="bg-[#fff2cc] border-r border-slate-300 py-2 px-2 min-w-[95px] text-left">
-                      State
-                    </th>
+                          {/* State */}
+                          <td className="py-1 px-1">
+                            <select
+                              value={r.state}
+                              onChange={(e) => handleCellChange(r.id, { state: e.target.value })}
+                              className="w-full px-1.5 py-1 text-xs border border-transparent hover:border-slate-300 focus:border-blue-500 rounded bg-transparent focus:bg-white"
+                            >
+                              <option value="Karnataka">Karnataka</option>
+                              <option value="Tamil Nadu">Tamil Nadu</option>
+                              <option value="Maharashtra">Maharashtra</option>
+                              <option value="Kerala">Kerala</option>
+                            </select>
+                          </td>
 
-                    {/* Col P: GST18% */}
-                    <th className="bg-[#fff2cc] border-r border-slate-300 py-2 px-1 min-w-[65px] text-center">
-                      GST18%
-                    </th>
+                          {/* GST % */}
+                          <td className="py-2 px-1 text-center font-mono text-[11px] text-slate-500">
+                            {r.state === "Karnataka" ? "9%+9%" : "18%"}
+                          </td>
 
-                    {/* Col Q: GST Amt */}
-                    <th className="bg-[#f6b26b] border-r border-slate-300 py-2 px-1 min-w-[80px] text-right font-black text-amber-950">
-                      GST Amt
-                    </th>
+                          {/* GST Amt */}
+                          <td className="py-2 px-2 text-right font-mono text-orange-800 bg-orange-50/50">
+                            {formatIndianCurrency(r.gstAmount)}
+                          </td>
 
-                    {/* Col R: Net Amount */}
-                    <th className="bg-[#f6b26b] border-r border-slate-300 py-2 px-1 min-w-[90px] text-right font-black text-amber-950">
-                      Net Amount
-                    </th>
+                          {/* Net Amount */}
+                          <td className="py-2 px-2 text-right font-mono font-black text-slate-900 bg-orange-50/50">
+                            {formatIndianCurrency(r.netAmount)}
+                          </td>
 
-                    {/* Col S: Factory Belongs */}
-                    <th className="bg-[#f9cb9c] border-r border-slate-300 py-2 px-2 min-w-[100px] text-left">
-                      Factory Belongs.
-                    </th>
+                          {/* Factory */}
+                          <td className="py-1 px-1">
+                            <select
+                              value={r.factory}
+                              onChange={(e) => handleCellChange(r.id, { factory: e.target.value })}
+                              className="w-full px-1.5 py-1 text-xs border border-transparent hover:border-slate-300 focus:border-blue-500 rounded bg-transparent focus:bg-white"
+                            >
+                              {factories.map((f) => (
+                                <option key={f.id} value={f.name}>
+                                  {f.name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
 
-                    {/* Col T: Status/Installation */}
-                    <th className="bg-[#f9cb9c] border-r border-slate-300 py-2 px-2 min-w-[100px] text-left">
-                      Status/ Installation
-                    </th>
+                          {/* Status */}
+                          <td className="py-1 px-1">
+                            <select
+                              value={r.status}
+                              onChange={(e) => handleCellChange(r.id, { status: e.target.value })}
+                              className="w-full px-1.5 py-1 text-xs border border-transparent hover:border-slate-300 focus:border-blue-500 rounded bg-transparent focus:bg-white font-medium"
+                            >
+                              <option value="Draft">Draft</option>
+                              <option value="Approved">Approved</option>
+                              <option value="In production">In Production</option>
+                              <option value="Delivered">Delivered</option>
+                            </select>
+                          </td>
 
-                    {/* Col U: Glass H -7mm */}
-                    <th className="bg-[#fff2cc] border-r border-slate-300 py-2 px-1 min-w-[70px] text-right font-bold text-slate-700">
-                      Glass H -7mm
-                    </th>
+                          {/* Glass Cut H (-7mm) */}
+                          <td className="py-2 px-2 text-right font-mono text-blue-900 bg-blue-50/30">
+                            {r.glassCutHeightMm}
+                          </td>
 
-                    {/* Col V: Glass W -7mm */}
-                    <th className="bg-[#fff2cc] border-r border-slate-300 py-2 px-1 min-w-[70px] text-right font-bold text-slate-700">
-                      Glass W -7mm
-                    </th>
+                          {/* Glass Cut W (-7mm) */}
+                          <td className="py-2 px-2 text-right font-mono text-blue-900 bg-blue-50/30">
+                            {r.glassCutWidthMm}
+                          </td>
 
-                    {/* Actions */}
-                    <th className="bg-slate-100 py-2 px-1 w-8 text-center text-slate-400"></th>
-                  </tr>
-                </thead>
+                          {/* Actions */}
+                          <td className="py-1 px-1 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                onClick={() => handleDuplicateRow(r.id)}
+                                className="text-slate-400 hover:text-blue-600 px-1 py-0.5 rounded transition cursor-pointer"
+                                title="Duplicate Row"
+                              >
+                                📋
+                              </button>
+                              <button
+                                onClick={() => handleDeleteRow(r.id)}
+                                className="text-slate-400 hover:text-red-600 px-1 py-0.5 rounded transition font-bold cursor-pointer"
+                                title="Delete Row"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
-                {/* SPREADSHEET DATA ROWS */}
-                <tbody className="divide-y divide-slate-200">
-                  {filteredRows.map((r, idx) => {
-                    const rowNumber = 22 + idx; // Matches starting row 22 in user screenshot!
-                    const isSelected = selectedRowId === r.id;
+              {/* Grid Footer Summary */}
+              <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-4 text-xs">
+                <div className="flex items-center gap-3">
+                  <span className="font-semibold text-slate-600">
+                    Showing {filteredRows.length} of {rows.length} measurement entries
+                  </span>
+                  <button
+                    onClick={handleAddRow}
+                    className="px-3 py-1 bg-white hover:bg-slate-100 text-blue-700 border border-blue-200 rounded-lg font-bold transition shadow-2xs cursor-pointer"
+                  >
+                    + Add Measurement Line
+                  </button>
+                </div>
 
-                    return (
-                      <tr
-                        key={r.id}
-                        onClick={() => {
-                          setSelectedRowId(r.id);
-                          setActiveCellCoord(`C${rowNumber}`);
-                          setActiveCellValue(`${r.clientName} | ${r.description} | ${r.frameHeightMm}x${r.frameWidthMm} | Net: ${r.netAmount}`);
-                        }}
-                        className={`hover:bg-blue-50/40 transition text-[11px] ${
-                          isSelected ? "bg-blue-50/70 ring-1 ring-blue-400" : ""
-                        }`}
-                      >
-                        {/* Row Number */}
-                        <td className="bg-slate-100 border-r border-slate-300 py-1 px-1 text-center font-mono text-slate-500 select-none text-[10px]">
-                          {rowNumber}
-                        </td>
-
-                        {/* Col A: Date */}
-                        <td className="border-r border-slate-200 p-0.5 font-mono text-slate-700">
-                          <input
-                            type="text"
-                            value={r.date || "07/09/2026"}
-                            onChange={(e) => handleCellChange(r.id, { date: e.target.value })}
-                            className="w-full px-1.5 py-1 text-[11px] bg-transparent hover:bg-white focus:bg-white focus:outline-none border border-transparent focus:border-blue-400 rounded-xs"
-                          />
-                        </td>
-
-                        {/* Col B: Flat */}
-                        <td className="border-r border-slate-200 p-0.5 font-mono text-slate-800">
-                          <input
-                            type="text"
-                            value={r.flat}
-                            onChange={(e) => handleCellChange(r.id, { flat: e.target.value })}
-                            placeholder="Flat"
-                            className="w-full px-1.5 py-1 text-[11px] bg-transparent hover:bg-white focus:bg-white focus:outline-none border border-transparent focus:border-blue-400 rounded-xs"
-                          />
-                        </td>
-
-                        {/* Col C: Client Name */}
-                        <td className="border-r border-slate-200 p-0.5 font-semibold text-slate-900">
-                          <input
-                            type="text"
-                            value={r.clientName}
-                            onChange={(e) => handleCellChange(r.id, { clientName: e.target.value })}
-                            placeholder="Client Name"
-                            className="w-full px-1.5 py-1 text-[11px] font-bold bg-transparent hover:bg-white focus:bg-white focus:outline-none border border-transparent focus:border-blue-400 rounded-xs"
-                          />
-                        </td>
-
-                        {/* Col D: Building */}
-                        <td className="border-r border-slate-200 p-0.5 text-slate-700">
-                          <input
-                            type="text"
-                            value={r.building}
-                            onChange={(e) => handleCellChange(r.id, { building: e.target.value })}
-                            placeholder="Building"
-                            className="w-full px-1.5 py-1 text-[11px] bg-transparent hover:bg-white focus:bg-white focus:outline-none border border-transparent focus:border-blue-400 rounded-xs"
-                          />
-                        </td>
-
-                        {/* Col E: Category */}
-                        <td className="border-r border-slate-200 p-0.5 text-slate-600">
-                          <input
-                            type="text"
-                            value={r.category || ""}
-                            onChange={(e) => handleCellChange(r.id, { category: e.target.value })}
-                            placeholder="Category"
-                            className="w-full px-1.5 py-1 text-[11px] bg-transparent hover:bg-white focus:bg-white focus:outline-none border border-transparent focus:border-blue-400 rounded-xs"
-                          />
-                        </td>
-
-                        {/* Col F: Item Name / Description */}
-                        <td className="border-r border-slate-200 p-0.5">
-                          <input
-                            type="text"
-                            value={r.description}
-                            onChange={(e) => handleCellChange(r.id, { description: e.target.value })}
-                            placeholder="Item Name"
-                            className="w-full px-1.5 py-1 text-[11px] font-semibold text-slate-800 bg-transparent hover:bg-white focus:bg-white focus:outline-none border border-transparent focus:border-blue-400 rounded-xs"
-                          />
-                        </td>
-
-                        {/* Col G: Frame H */}
-                        <td className="border-r border-slate-200 p-0.5 text-right font-mono">
-                          <input
-                            type="number"
-                            value={r.frameHeightMm || ""}
-                            onChange={(e) => handleCellChange(r.id, { frameHeightMm: parseFloat(e.target.value) || 0 })}
-                            className="w-full px-1 py-1 text-right text-[11px] bg-transparent hover:bg-white focus:bg-white focus:outline-none border border-transparent focus:border-blue-400 rounded-xs font-mono font-medium"
-                          />
-                        </td>
-
-                        {/* Col H: Frame W */}
-                        <td className="border-r border-slate-200 p-0.5 text-right font-mono">
-                          <input
-                            type="number"
-                            value={r.frameWidthMm || ""}
-                            onChange={(e) => handleCellChange(r.id, { frameWidthMm: parseFloat(e.target.value) || 0 })}
-                            className="w-full px-1 py-1 text-right text-[11px] bg-transparent hover:bg-white focus:bg-white focus:outline-none border border-transparent focus:border-blue-400 rounded-xs font-mono font-medium"
-                          />
-                        </td>
-
-                        {/* Col I: Round of H (Computed) */}
-                        <td className="border-r border-slate-200 p-1 text-right font-mono text-slate-600 bg-[#fffdf5]">
-                          {r.roundedHeightMm}
-                        </td>
-
-                        {/* Col J: Round of W (Computed) */}
-                        <td className="border-r border-slate-200 p-1 text-right font-mono text-slate-600 bg-[#fffdf5]">
-                          {r.roundedWidthMm}
-                        </td>
-
-                        {/* Col K: Qty */}
-                        <td className="border-r border-slate-200 p-0.5 text-center font-mono">
-                          <input
-                            type="number"
-                            min="1"
-                            value={r.quantity || ""}
-                            onChange={(e) => handleCellChange(r.id, { quantity: parseInt(e.target.value, 10) || 1 })}
-                            className="w-full px-1 py-1 text-center text-[11px] bg-transparent hover:bg-white focus:bg-white focus:outline-none border border-transparent focus:border-blue-400 rounded-xs font-mono font-bold"
-                          />
-                        </td>
-
-                        {/* Col L: R.ft (Computed) */}
-                        <td className="border-r border-slate-200 p-1 text-right font-mono text-slate-600">
-                          {r.runningFeet.toFixed(1)}
-                        </td>
-
-                        {/* Col M: Size Sqft (Computed) */}
-                        <td className="border-r border-slate-200 p-1 text-right font-mono font-semibold text-slate-900 bg-[#fefce8]">
-                          {r.sqft.toFixed(3)}
-                        </td>
-
-                        {/* Col N: Rate */}
-                        <td className="border-r border-slate-200 p-0.5 text-right font-mono">
-                          <input
-                            type="number"
-                            value={r.rate || ""}
-                            onChange={(e) => handleCellChange(r.id, { rate: parseFloat(e.target.value) || 0 })}
-                            className="w-full px-1 py-1 text-right text-[11px] font-mono font-bold text-slate-900 bg-transparent hover:bg-white focus:bg-white focus:outline-none border border-transparent focus:border-blue-400 rounded-xs"
-                          />
-                        </td>
-
-                        {/* Col O: State */}
-                        <td className="border-r border-slate-200 p-0.5">
-                          <select
-                            value={r.state}
-                            onChange={(e) => handleCellChange(r.id, { state: e.target.value })}
-                            className="w-full px-1 py-1 text-[11px] bg-transparent hover:bg-white focus:bg-white border border-transparent focus:border-blue-400 rounded-xs"
-                          >
-                            <option value="Karnataka">Karnataka</option>
-                            <option value="Tamil Nadu">Tamil Nadu</option>
-                            <option value="Maharashtra">Maharashtra</option>
-                          </select>
-                        </td>
-
-                        {/* Col P: GST18% */}
-                        <td className="border-r border-slate-200 p-1 text-center text-[10px] text-slate-600 font-mono">
-                          {r.state === "Karnataka" ? "9%+9%" : "18%"}
-                        </td>
-
-                        {/* Col Q: GST Amt (Computed) */}
-                        <td className="border-r border-slate-200 p-1 text-right font-mono text-slate-800 bg-[#fffbeb]">
-                          ₹{r.gstAmount.toFixed(2)}
-                        </td>
-
-                        {/* Col R: Net Amount (Computed) */}
-                        <td className="border-r border-slate-200 p-1 text-right font-mono font-bold text-slate-900 bg-[#fffbeb]">
-                          ₹{r.netAmount.toFixed(2)}
-                        </td>
-
-                        {/* Col S: Factory Belongs */}
-                        <td className="border-r border-slate-200 p-0.5">
-                          <select
-                            value={r.factory}
-                            onChange={(e) => handleCellChange(r.id, { factory: e.target.value })}
-                            className="w-full px-1 py-1 text-[11px] bg-transparent hover:bg-white focus:bg-white border border-transparent focus:border-blue-400 rounded-xs"
-                          >
-                            {factories.map((f) => (
-                              <option key={f.id} value={f.name}>
-                                {f.name}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-
-                        {/* Col T: Status/Installation */}
-                        <td className="border-r border-slate-200 p-0.5">
-                          <select
-                            value={r.status}
-                            onChange={(e) => handleCellChange(r.id, { status: e.target.value })}
-                            className="w-full px-1 py-1 text-[11px] bg-transparent hover:bg-white focus:bg-white border border-transparent focus:border-blue-400 rounded-xs"
-                          >
-                            <option value="Draft">Draft</option>
-                            <option value="Approved">Approved</option>
-                            <option value="In production">In Production</option>
-                            <option value="Delivered">Delivered</option>
-                          </select>
-                        </td>
-
-                        {/* Col U: Glass H -7mm (Computed) */}
-                        <td className="border-r border-slate-200 p-1 text-right font-mono text-slate-700 bg-[#fffef0]">
-                          {r.glassCutHeightMm}
-                        </td>
-
-                        {/* Col V: Glass W -7mm (Computed) */}
-                        <td className="border-r border-slate-200 p-1 text-right font-mono text-slate-700 bg-[#fffef0]">
-                          {r.glassCutWidthMm}
-                        </td>
-
-                        {/* Delete Row Action */}
-                        <td className="p-0.5 text-center">
-                          <button
-                            onClick={() => handleDeleteRow(r.id)}
-                            className="text-slate-300 hover:text-red-600 font-bold px-1 transition"
-                            title="Delete Row"
-                          >
-                            ×
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                <div className="flex items-center gap-6 font-mono text-xs">
+                  <div>
+                    <span className="text-slate-400 font-sans mr-2">Total Sqft:</span>
+                    <span className="font-bold text-slate-800">
+                      {filteredRows.reduce((acc, r) => acc + r.sqft, 0).toFixed(2)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-sans mr-2">Net Value:</span>
+                    <span className="font-bold text-slate-900">
+                      {formatIndianCurrency(overallTotals.net)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-sans mr-2">Total GST:</span>
+                    <span className="font-bold text-slate-900">
+                      {formatIndianCurrency(overallTotals.gst)}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* ============================================================== */}
-            {/* EXACT FOOTER: BANK DETAILS, WORDS, TOTALS, AND TERMS (1501-1515) */}
-            {/* ============================================================== */}
-            <div className="border-t-2 border-slate-300 bg-[#fafafa] p-4 text-xs font-sans">
-              <div className="grid grid-cols-12 gap-6">
-                {/* Left: Bank Details & Terms */}
-                <div className="col-span-12 lg:col-span-8 space-y-4">
-                  {/* Bank Details */}
-                  <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-1 font-mono text-[11px] text-slate-700 leading-relaxed shadow-2xs">
-                    <div className="font-bold text-slate-900">COMPANY NAME - GLASS CARE ENTERPRISES</div>
-                    <div>STATE BANK OF INDIA / IFSC CODE: <span className="font-bold text-slate-900">SBIN0002263</span></div>
-                    <div>UPI ID | <span className="font-bold text-blue-700">9945988552@upi</span></div>
-                    <div>ACCOUNT NO - <span className="font-bold text-slate-900">42443380892</span></div>
-                    <div>BRANCH - MASQUE ROAD, RICHARDS TOWN BANGALORE 560005</div>
-                  </div>
+            {/* COMMERCIAL DETAILS, WORDS, BANK AND TERMS */}
+            <div className="grid grid-cols-12 gap-6">
+              {/* Left Column: Bank Details & Terms */}
+              <div className="col-span-12 lg:col-span-8 space-y-4">
+                {/* Total in Indian Rupee Words Banner */}
+                <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl shadow-xs">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 block">
+                    Amount in Words (INR)
+                  </span>
+                  <p className="text-sm font-serif italic font-bold text-amber-950 mt-1">
+                    &ldquo;{overallTotals.words}&rdquo;
+                  </p>
+                </div>
 
-                  {/* Total In Words */}
-                  <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-lg">
-                    <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">Total In Words</span>
-                    <p className="text-xs font-serif italic font-bold text-amber-950 mt-0.5">
-                      &ldquo;{overallTotals.words}&rdquo;
-                    </p>
-                  </div>
-
-                  {/* Terms & Conditions */}
-                  <div className="p-3 bg-white rounded-lg border border-slate-200 text-[11px] space-y-1 text-slate-600 leading-normal">
-                    <div className="font-bold text-slate-800 uppercase tracking-wider text-[10px]">TERMS & CONDITIONS:</div>
-                    <ol className="list-decimal list-inside space-y-0.5 pl-1">
-                      <li>Order once confirmed cannot be cancelled.</li>
-                      <li>Any complaint related to processing quality should be informed at time of unloading duly remarked on DC.</li>
-                      <li>All disputes shall be subject to Bangalore jurisdiction only.</li>
-                      <li>Initial payment 70% of gross price to be paid at the time of ordering.</li>
-                      <li>Interim payment 20% of gross price on delivery pallet glass &amp; material of the goods to be used for the work.</li>
-                      <li>Final payment 10% of gross price on completion of works.</li>
-                    </ol>
-                  </div>
-
-                  {/* Signatures */}
-                  <div className="pt-2 flex items-center justify-between text-xs text-slate-500">
-                    <div>
-                      <div className="w-48 border-b border-slate-300 mb-1"></div>
-                      <span>Authorized Signature</span>
+                {/* Bank Account Details */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-2">
+                  <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-2">
+                    <span>🏦</span>
+                    <span>Banking &amp; Settlement Details</span>
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs font-mono text-slate-700">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
+                      <div className="text-[10px] font-sans font-bold text-slate-400 uppercase">Bank Account</div>
+                      <div className="font-bold text-slate-900 text-sm">STATE BANK OF INDIA</div>
+                      <div>IFSC: <span className="font-bold text-blue-700">SBIN0002263</span></div>
+                      <div>A/C: <span className="font-bold text-slate-900">42443380892</span></div>
                     </div>
-                    <div className="font-serif italic text-slate-600 font-semibold">
-                      Thanks for your business.
+
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
+                      <div className="text-[10px] font-sans font-bold text-slate-400 uppercase">UPI &amp; Branch</div>
+                      <div>UPI ID: <span className="font-bold text-blue-700">9945988552@upi</span></div>
+                      <div className="text-[11px] font-sans text-slate-600 mt-1">
+                        Branch: Masque Road, Richards Town, Bangalore 560005
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Right: Freight Input & Grand Totals Box */}
-                <div className="col-span-12 lg:col-span-4">
-                  <div className="bg-white rounded-xl border border-slate-300 p-4 shadow-xs space-y-3">
-                    <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider pb-2 border-b border-slate-200">
-                      Summary Calculation
-                    </h3>
+                {/* Commercial Terms & Conditions */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs text-xs space-y-2">
+                  <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-2">
+                    <span>📋</span>
+                    <span>Standard Terms &amp; Conditions</span>
+                  </h3>
+                  <ol className="list-decimal list-inside space-y-1 text-slate-600 text-xs pl-1 leading-relaxed">
+                    <li>Order once confirmed cannot be cancelled.</li>
+                    <li>Any complaint related to processing quality should be informed at time of unloading duly remarked on delivery challan.</li>
+                    <li>All disputes shall be subject to Bangalore jurisdiction only.</li>
+                    <li><strong>Advance:</strong> Initial payment 70% of gross price to be paid at time of ordering.</li>
+                    <li><strong>Delivery:</strong> Interim payment 20% of gross price on delivery pallet glass &amp; material of goods to be used for work.</li>
+                    <li><strong>Completion:</strong> Final payment 10% of gross price on completion of works.</li>
+                  </ol>
+                </div>
+              </div>
 
+              {/* Right Column: Financial Calculation Box */}
+              <div className="col-span-12 lg:col-span-4">
+                <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4 sticky top-28">
+                  <h3 className="font-black text-slate-900 text-xs uppercase tracking-wider pb-2 border-b border-slate-100">
+                    Quotation Totals
+                  </h3>
+
+                  <div className="space-y-2.5 text-xs">
                     {/* Freight Charge Input */}
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium text-slate-600">Freight Charge:</span>
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-slate-600">Freight &amp; Packaging:</span>
                       <div className="flex items-center gap-1">
                         <span className="text-slate-400 font-mono">₹</span>
                         <input
@@ -1606,95 +1476,102 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                           value={freightCharge || ""}
                           onChange={(e) => setFreightCharge(parseFloat(e.target.value) || 0)}
                           placeholder="0.00"
-                          className="w-24 text-right px-2 py-1 text-xs border border-slate-200 rounded font-mono font-medium focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                          className="w-24 text-right px-2.5 py-1 text-xs border border-slate-300 rounded-lg font-mono font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none"
                         />
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
-                      <span className="text-slate-600 font-medium">Sub Total:</span>
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                      <span className="text-slate-600">Sub Total:</span>
                       <span className="font-mono font-bold text-slate-900">
                         {formatIndianCurrency(overallTotals.subTotal)}
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-600 font-medium">GST 18%:</span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-600">GST Total (18%):</span>
                       <span className="font-mono font-bold text-slate-900">
                         {formatIndianCurrency(overallTotals.gst)}
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between text-xs text-slate-400 pt-1 border-t border-slate-100">
+                    <div className="flex items-center justify-between text-slate-400 text-[11px] pt-1 border-t border-slate-100">
                       <span>Exact Grand Total:</span>
                       <span className="font-mono">{formatIndianCurrency(overallTotals.grandTotal)}</span>
                     </div>
 
-                    <div className="flex items-center justify-between text-xs text-slate-400">
+                    <div className="flex items-center justify-between text-slate-400 text-[11px]">
                       <span>Round Off:</span>
-                      <span className="font-mono">{overallTotals.roundOff >= 0 ? `+${overallTotals.roundOff.toFixed(2)}` : overallTotals.roundOff.toFixed(2)}</span>
-                    </div>
-
-                    {/* Final Display Total */}
-                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 flex items-center justify-between">
-                      <span className="text-xs font-black uppercase text-blue-900">Grand Total:</span>
-                      <span className="font-mono text-lg font-black text-blue-950">
-                        {formatIndianCurrency(overallTotals.displayTotal)}
+                      <span className="font-mono">
+                        {overallTotals.roundOff >= 0 ? `+${overallTotals.roundOff.toFixed(2)}` : overallTotals.roundOff.toFixed(2)}
                       </span>
                     </div>
 
-                    {/* Action buttons inside summary */}
-                    <div className="pt-2 flex flex-col gap-2">
-                      <button
-                        onClick={() => {
-                          const targetGrp = groupedQuotes.find((g) => g.clientName === activeCustomer) || groupedQuotes[0];
-                          if (targetGrp) handleCreateOfficialQuote(targetGrp);
-                        }}
-                        disabled={isGeneratingQuote}
-                        className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center justify-center gap-1.5 disabled:opacity-50"
-                      >
-                        <span>📄</span>
-                        <span>Save as Official Quote</span>
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          const waText = encodeURIComponent(
-                            `*GLASS CARE ENTERPRISES - QUOTATION*\nCustomer: ${activeCustomer}\nFlat: ${activeFlat}\nQuote No: ${activeQuoteNumber}\nTotal Amount: ${formatIndianCurrency(overallTotals.displayTotal)}\nSub Total: ${formatIndianCurrency(overallTotals.subTotal)}\nGST 18%: ${formatIndianCurrency(overallTotals.gst)}\n\nThank you for choosing Glass Care Enterprises!`
-                          );
-                          window.open(`https://wa.me/?text=${waText}`, "_blank");
-                        }}
-                        className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5"
-                      >
-                        <span>💬</span>
-                        <span>Share on WhatsApp</span>
-                      </button>
+                    {/* Final Grand Total Display */}
+                    <div className="p-4 bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-xl shadow-md flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-black uppercase tracking-wider block opacity-80">Final Payable</span>
+                        <span className="text-sm font-bold">Grand Total</span>
+                      </div>
+                      <span className="font-mono text-2xl font-black">
+                        {formatIndianCurrency(overallTotals.displayTotal)}
+                      </span>
                     </div>
+                  </div>
+
+                  {/* Actions inside summary box */}
+                  <div className="pt-2 flex flex-col gap-2">
+                    <button
+                      onClick={() => {
+                        const targetGrp = groupedQuotes.find((g) => g.clientName === activeCustomer) || groupedQuotes[0];
+                        if (targetGrp) handleCreateOfficialQuote(targetGrp);
+                      }}
+                      disabled={isGeneratingQuote}
+                      className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                    >
+                      <span>📄</span>
+                      <span>Save as Official Quote</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const waText = encodeURIComponent(
+                          `*GLASS CARE ENTERPRISES - QUOTATION*\nCustomer: ${activeCustomer}\nFlat: ${activeFlat}\nQuote No: ${activeQuoteNumber}\nTotal Amount: ${formatIndianCurrency(overallTotals.displayTotal)}\nSub Total: ${formatIndianCurrency(overallTotals.subTotal)}\nGST 18%: ${formatIndianCurrency(overallTotals.gst)}\n\nThank you for choosing Glass Care Enterprises!`
+                        );
+                        window.open(`https://wa.me/?text=${waText}`, "_blank");
+                      }}
+                      className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <span>💬</span>
+                      <span>Share on WhatsApp</span>
+                    </button>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+          </>
         ) : (
           /* ============================================================== */
-          /* AUTO-GROUPED QUOTES TAB (_Notelist @26)                        */
+          /* CLIENT QUOTATIONS SUMMARY TAB                                  */
           /* ============================================================== */
           <div className="space-y-4">
-            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-wrap items-center justify-between gap-4">
               <div>
-                <h2 className="text-base font-bold text-slate-900">Quotes Auto-Grouped by Customer</h2>
-                <p className="text-xs text-slate-500">
-                  Rows from the master sheet are automatically grouped into clean quotes by Client + Flat + Building
+                <h2 className="text-base font-black text-slate-900">Client Quotations Overview</h2>
+                <p className="text-xs text-slate-500 font-medium">
+                  Automatically organized by Client + Flat + Building with live financial totals and PDF exports
                 </p>
               </div>
+
               <div className="flex items-center gap-3">
-                <span className="px-3 py-1.5 bg-blue-50 text-blue-700 font-semibold rounded-lg text-xs border border-blue-200">
-                  {groupedQuotes.length} Distinct Quotes Detected
+                <span className="px-3 py-1.5 bg-blue-50 text-blue-700 font-bold rounded-lg text-xs border border-blue-200">
+                  {groupedQuotes.length} Client Quotations Ready
                 </span>
+
                 <button
                   onClick={handleBatchGenerateQuotes}
                   disabled={isGeneratingQuote || groupedQuotes.length === 0}
-                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
                   title="Generate official quotes for all customers in one click"
                 >
                   <span>⚡</span>
@@ -1705,52 +1582,56 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
 
             <div className="grid grid-cols-1 gap-4">
               {groupedQuotes.map((q, idx) => (
-                <div key={q.groupKey} className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 hover:border-blue-300 transition">
-                  <div className="flex flex-wrap items-center justify-between pb-3 border-b border-slate-100 gap-2">
+                <div key={q.groupKey} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 hover:border-blue-400 transition">
+                  <div className="flex flex-wrap items-center justify-between pb-3 border-b border-slate-100 gap-3">
                     <div className="flex items-center gap-3">
-                      <span className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
+                      <span className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-black text-sm">
                         #{idx + 1}
                       </span>
                       <div>
-                        <h3 className="text-sm font-bold text-slate-900">
-                          {q.clientName} {q.flat ? `(Flat ${q.flat})` : ""} {q.building ? `— ${q.building}` : ""}
+                        <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                          <span>{q.clientName}</span>
+                          {q.flat && <span className="text-xs font-semibold text-slate-500">(Flat {q.flat})</span>}
+                          {q.building && <span className="text-xs text-slate-400">— {q.building}</span>}
                         </h3>
-                        <p className="text-xs text-slate-500">
-                          State: {q.state} • Factory: {q.factory} • Status: {q.status} • {q.rowCount} Line Items
+                        <p className="text-xs text-slate-500 font-medium">
+                          State: {q.state} • Factory: {q.factory} • Status: <span className="font-semibold text-blue-700">{q.status}</span> • {q.rowCount} Line Items
                         </p>
                       </div>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-4">
                       <div className="text-right">
-                        <span className="text-[11px] text-slate-400 uppercase tracking-wider block">Sub Total</span>
-                        <span className="font-mono text-xs font-semibold text-slate-800">
+                        <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">Sub Total</span>
+                        <span className="font-mono text-xs font-bold text-slate-800">
                           {formatIndianCurrency(q.subTotal)}
                         </span>
                       </div>
+
                       <div className="text-right">
-                        <span className="text-[11px] text-slate-400 uppercase tracking-wider block">GST Total</span>
-                        <span className="font-mono text-xs font-semibold text-slate-800">
+                        <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">GST 18%</span>
+                        <span className="font-mono text-xs font-bold text-slate-800">
                           {formatIndianCurrency(q.gstTotal)}
                         </span>
                       </div>
-                      <div className="text-right bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
-                        <span className="text-[10px] text-blue-700 uppercase font-bold tracking-wider block">Display Total</span>
-                        <span className="font-mono text-base font-extrabold text-blue-900">
+
+                      <div className="text-right bg-blue-50 px-3.5 py-1.5 rounded-xl border border-blue-100">
+                        <span className="text-[10px] text-blue-700 uppercase font-bold tracking-wider block">Grand Total</span>
+                        <span className="font-mono text-base font-black text-blue-900">
                           {formatIndianCurrency(q.displayTotal)}
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-2 pl-2 border-l border-slate-100">
+                      <div className="flex items-center gap-1.5 pl-2 border-l border-slate-100">
                         <button
                           onClick={() => handleCreateOfficialQuote(q)}
                           disabled={isGeneratingQuote}
-                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-xs transition disabled:opacity-50 flex items-center gap-1"
-                          title="Save as an official quote in the Quotes registry"
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-xs transition disabled:opacity-50 flex items-center gap-1 cursor-pointer"
                         >
                           <span>📄</span>
                           <span>Save Quote</span>
                         </button>
+
                         <button
                           onClick={() => {
                             const waText = encodeURIComponent(
@@ -1758,28 +1639,27 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                             );
                             window.open(`https://wa.me/?text=${waText}`, "_blank");
                           }}
-                          className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-medium rounded-lg transition flex items-center gap-1 cursor-pointer"
-                          title="Share summary via WhatsApp"
+                          className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold rounded-lg transition flex items-center gap-1 cursor-pointer"
                         >
                           <span>💬</span>
                           <span>WhatsApp</span>
                         </button>
+
                         <button
                           onClick={() => {
                             setFilterCustomer(q.clientName);
                             setActiveTab("sheet");
-                            showToast(`Editing measurements for ${q.clientName}`);
+                            showToast(`Editing sheet for ${q.clientName}`);
                           }}
-                          className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-semibold rounded-lg transition flex items-center gap-1 cursor-pointer"
-                          title="Open and edit this client's rows in Master Sheet"
+                          className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-semibold rounded-lg transition flex items-center gap-1 cursor-pointer"
                         >
                           <span>✏️</span>
                           <span>Edit Sheet</span>
                         </button>
+
                         <button
                           onClick={() => handleDuplicateClient(q.clientName)}
-                          className="px-2 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-medium rounded-lg transition flex items-center gap-1 cursor-pointer"
-                          title="Duplicate these sizes for a new client"
+                          className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-semibold rounded-lg transition flex items-center gap-1 cursor-pointer"
                         >
                           <span>📋</span>
                           <span>Duplicate</span>
@@ -1788,40 +1668,40 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                     </div>
                   </div>
 
-                  <div className="mt-3 text-xs italic text-slate-500 font-serif">
+                  <div className="mt-2.5 text-xs italic text-slate-500 font-serif">
                     &ldquo;{q.displayTotalWords}&rdquo;
                   </div>
 
-                  {/* Nested Rows Preview */}
-                  <div className="mt-4 overflow-x-auto">
+                  {/* Line Items Preview */}
+                  <div className="mt-3 overflow-x-auto">
                     <table className="w-full text-left text-xs">
                       <thead>
-                        <tr className="text-slate-400 border-b border-slate-100 text-[11px]">
-                          <th className="py-1 px-2">Item</th>
-                          <th className="py-1 px-2 text-right">Frame (mm)</th>
-                          <th className="py-1 px-2 text-right">Glass Cut</th>
-                          <th className="py-1 px-2 text-right">Rounded</th>
-                          <th className="py-1 px-2 text-center">Qty</th>
-                          <th className="py-1 px-2 text-right">Sqft</th>
-                          <th className="py-1 px-2 text-right">Rate</th>
-                          <th className="py-1 px-2 text-right">Net</th>
-                          <th className="py-1 px-2 text-right">GST</th>
-                          <th className="py-1 px-2 text-right">Total</th>
+                        <tr className="text-slate-400 border-b border-slate-100 text-[11px] uppercase tracking-wider font-semibold">
+                          <th className="py-1.5 px-2">Item Description</th>
+                          <th className="py-1.5 px-2 text-right">Frame (mm)</th>
+                          <th className="py-1.5 px-2 text-right">Glass Cut</th>
+                          <th className="py-1.5 px-2 text-right">Rounded (76.2)</th>
+                          <th className="py-1.5 px-2 text-center">Qty</th>
+                          <th className="py-1.5 px-2 text-right">Sqft</th>
+                          <th className="py-1.5 px-2 text-right">Rate (₹)</th>
+                          <th className="py-1.5 px-2 text-right">Net (₹)</th>
+                          <th className="py-1.5 px-2 text-right">GST (₹)</th>
+                          <th className="py-1.5 px-2 text-right">Total (₹)</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-50 text-[11px]">
+                      <tbody className="divide-y divide-slate-50 text-[11px] font-mono">
                         {q.rows.map((row) => (
                           <tr key={row.id}>
-                            <td className="py-1.5 px-2 font-medium text-slate-800">{row.description}</td>
-                            <td className="py-1.5 px-2 text-right font-mono">{row.frameHeightMm}×{row.frameWidthMm}</td>
-                            <td className="py-1.5 px-2 text-right font-mono text-slate-500">{row.glassCutHeightMm}×{row.glassCutWidthMm}</td>
-                            <td className="py-1.5 px-2 text-right font-mono text-slate-500">{row.roundedHeightMm}×{row.roundedWidthMm}</td>
-                            <td className="py-1.5 px-2 text-center font-mono">{row.quantity}</td>
-                            <td className="py-1.5 px-2 text-right font-mono">{row.sqft.toFixed(3)}</td>
-                            <td className="py-1.5 px-2 text-right font-mono">{row.rate}</td>
-                            <td className="py-1.5 px-2 text-right font-mono font-medium">{formatIndianCurrency(row.netAmount)}</td>
-                            <td className="py-1.5 px-2 text-right font-mono text-slate-600">{formatIndianCurrency(row.gstAmount)}</td>
-                            <td className="py-1.5 px-2 text-right font-mono font-bold text-slate-900">{formatIndianCurrency(row.totalAmount)}</td>
+                            <td className="py-1.5 px-2 font-sans font-semibold text-slate-800">{row.description}</td>
+                            <td className="py-1.5 px-2 text-right">{row.frameHeightMm}×{row.frameWidthMm}</td>
+                            <td className="py-1.5 px-2 text-right text-slate-500">{row.glassCutHeightMm}×{row.glassCutWidthMm}</td>
+                            <td className="py-1.5 px-2 text-right text-slate-500">{row.roundedHeightMm}×{row.roundedWidthMm}</td>
+                            <td className="py-1.5 px-2 text-center font-bold text-slate-900">{row.quantity}</td>
+                            <td className="py-1.5 px-2 text-right">{row.sqft.toFixed(3)}</td>
+                            <td className="py-1.5 px-2 text-right">{row.rate}</td>
+                            <td className="py-1.5 px-2 text-right font-medium text-slate-900">{formatIndianCurrency(row.netAmount)}</td>
+                            <td className="py-1.5 px-2 text-right text-slate-600">{formatIndianCurrency(row.gstAmount)}</td>
+                            <td className="py-1.5 px-2 text-right font-bold text-slate-900">{formatIndianCurrency(row.totalAmount)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1835,106 +1715,12 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
       </main>
 
       {/* ============================================================== */}
-      {/* 4. BOTTOM GOOGLE SHEETS TABS BAR (Exact matching layout)       */}
+      {/* 4. MODALS & POPUPS                                             */}
       {/* ============================================================== */}
-      <footer className="bg-white border-t border-slate-300 px-3 py-1 flex items-center justify-between text-xs sticky bottom-0 z-30 shadow-xs">
-        <div className="flex items-center gap-1 overflow-x-auto">
-          {/* Add Sheet / Add Row */}
-          <button
-            onClick={handleAddRow}
-            className="w-7 h-7 rounded hover:bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-sm cursor-pointer"
-            title="Add row"
-          >
-            +
-          </button>
 
-          {/* Sheets List Icon */}
-          <button
-            className="w-7 h-7 rounded hover:bg-slate-100 text-slate-600 flex items-center justify-center text-sm cursor-pointer"
-            title="All sheets"
-          >
-            ≡
-          </button>
-
-          <span className="text-slate-300">|</span>
-
-          {/* Folder Tab */}
-          <span className="px-2.5 py-1 text-slate-500 font-medium text-xs flex items-center gap-1 cursor-default">
-            📁 GCE-Folders
-          </span>
-
-          {/* Primary Tab: _Notebook Size's @26L */}
-          <button
-            onClick={() => setActiveTab("sheet")}
-            className={`px-3 py-1.5 font-bold text-xs flex items-center gap-1.5 border-b-2 transition ${
-              activeTab === "sheet"
-                ? "border-emerald-600 text-emerald-800 bg-emerald-50/50"
-                : "border-transparent text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            <span>_Notebook Size&apos;s @26L</span>
-            <span className="text-[10px] text-slate-400">▼</span>
-          </button>
-
-          {/* Secondary Tab: _Notelist @26 (Quotes) */}
-          <button
-            onClick={() => setActiveTab("quotes")}
-            className={`px-3 py-1.5 font-bold text-xs flex items-center gap-1.5 border-b-2 transition ${
-              activeTab === "quotes"
-                ? "border-emerald-600 text-emerald-800 bg-emerald-50/50"
-                : "border-transparent text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            <span>🔒 _Notelist @26</span>
-            <span className="px-1.5 py-0.2 bg-blue-100 text-blue-800 text-[10px] rounded-full">
-              {groupedQuotes.length}
-            </span>
-          </button>
-
-          <span className="text-slate-300">|</span>
-
-          {/* App Navigation Links */}
-          <Link
-            href="/quotes"
-            className="px-2.5 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
-          >
-            Quotes Registry
-          </Link>
-          <Link
-            href="/factory"
-            className="px-2.5 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
-          >
-            Factory Sheet
-          </Link>
-          <Link
-            href="/payments"
-            className="px-2.5 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
-          >
-            Payments
-          </Link>
-          <Link
-            href="/dashboard"
-            className="px-2.5 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
-          >
-            Dashboard
-          </Link>
-          <Link
-            href="/settings"
-            className="px-2.5 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
-          >
-            Settings
-          </Link>
-        </div>
-
-        {/* Counter displayed on bottom right */}
-        <div className="flex items-center gap-3 text-slate-500 font-mono text-[11px] shrink-0 pl-4">
-          <span>{filteredRows.length} of 1,510 rows displayed</span>
-        </div>
-      </footer>
-
-      {/* Floating Toast Notification */}
+      {/* Floating Toast Alert */}
       {toastMsg && (
-        <div className="fixed bottom-12 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-slate-700 animate-bounce">
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-slate-700 animate-bounce">
           <span className="text-emerald-400 font-bold text-base">✓</span>
           <span className="text-xs font-medium">{toastMsg}</span>
         </div>
@@ -1948,15 +1734,15 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
               <div className="flex items-center gap-2">
                 <span className="text-xl">📥</span>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">Import Measurement Sheet</h3>
+                  <h3 className="text-base font-bold text-slate-900">Import Measurement Spreadsheet</h3>
                   <p className="text-xs text-slate-500">
-                    Paste from Google Sheets (e.g. &ldquo;_Notebook Size&apos;s @26L&rdquo;) or upload an Excel file
+                    Paste raw rows from Excel / Google Sheets or upload a .xlsx file
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setImportModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
               >
                 ✕
               </button>
@@ -1965,14 +1751,14 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Option 1: Paste rows from Google Sheets / Excel (tab or comma separated)
+                  Option 1: Paste rows directly (Tab or Comma separated)
                 </label>
                 <textarea
                   value={importText}
                   onChange={(e) => setImportText(e.target.value)}
-                  placeholder="Paste multi-row data here... Column structure A to V from your Google Sheet is automatically detected!"
+                  placeholder="Paste multi-row data here... Column structure (Date, Flat, Client, Building, Category, Item, Frame H, Frame W, Qty, Rate...) is automatically detected!"
                   rows={6}
-                  className="w-full text-xs font-mono p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full text-xs font-mono p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
                 {importText.trim() && (
                   <div className="mt-1 text-[11px] text-blue-600 font-medium">
@@ -2000,9 +1786,9 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
               </div>
 
               <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-[11px] text-slate-600">
-                <p className="font-semibold text-slate-800 mb-1">💡 Smart Google Sheet Auto-Detection:</p>
+                <p className="font-semibold text-slate-800 mb-1">💡 Smart Multi-Client Auto-Detection:</p>
                 <ul className="list-disc list-inside space-y-0.5">
-                  <li>Detects standard 22-column GCE layout (Date, Flat, Client, Building, Category, Item, Frame H, Frame W, Qty, Rate, Factory...)</li>
+                  <li>Detects standard 22-column layout (Date, Flat, Client, Building, Category, Item, Frame H, Frame W, Qty, Rate, Factory...)</li>
                   <li>Automatically splits and groups rows by each customer (Client + Flat + Building)</li>
                   <li>Auto-calculates Glass Cut (-7mm), 76.2mm Rounding, Sqft, and 18% GST (9%+9%)</li>
                 </ul>
@@ -2036,13 +1822,14 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                   }}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition cursor-pointer"
                 >
-                  Import & Auto-Group Rows
+                  Import &amp; Auto-Group Rows
                 </button>
               </div>
             </div>
           </div>
         </div>
       )}
+
       {/* New Client Modal */}
       {newClientModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
@@ -2140,7 +1927,7 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                     onChange={(e) => setCopyFromClient(e.target.value)}
                     className="w-full px-2.5 py-1.5 border border-blue-300 rounded-lg text-xs bg-white font-medium text-slate-800 focus:outline-none"
                   >
-                    <option value="NONE">-- Start with blank rows --</option>
+                    <option value="NONE">-- Start with fresh measurement lines --</option>
                     {customerList.map((c) => (
                       <option key={c} value={c}>
                         Copy all measurements from {c}
@@ -2148,7 +1935,7 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                     ))}
                   </select>
                   <p className="text-[11px] text-blue-700 mt-1">
-                    Ideal when new flat has identical window or shutter dimensions!
+                    Ideal when the new flat or villa has identical window sizes!
                   </p>
                 </div>
               )}
