@@ -4,6 +4,52 @@ This document outlines the key assumptions and design decisions made for Phase 1
 
 ---
 
+## 7. Royal World Business Management System (7 Tabs A-One Architecture)
+
+Based on user request and infographic specification (`ROYAL WORLD - GOOGLE SHEET Business Management System - 7 Tabs - A-One`), the platform was extended with dedicated modules, unified navigation, and auto calculations:
+
+### Tab 1: Quotation Tracker (`/quotes` & `/`)
+- **Fields**: Date, Customer, Mobile, Work (Description), Amount, Status, Follow-Up Date.
+- **Status Indicator Rules**: Red (`Pending`), Yellow/Amber (`Follow Up`), Green (`Received / Approved`). "Red & Green se pata chalega Boss!"
+
+### Tab 2: Processing (`/factory`)
+- **Factory WIP**: Customer, Work, Vendor/Factory, Material, Site Date, Status.
+- Includes Guillotine Bin Packing sheet cutting optimizer and WhatsApp Plain-Text export.
+
+### Tab 3: Payment Tracker (`/payments`)
+- **Fields**: Customer, Total Amount, Advance Paid, Balance Due, Received?, Follow-Up Date.
+- Milestone tracking: 70% advance on ordering, 20% on pallet delivery, 10% on completion.
+- One-click WhatsApp payment reminders with SBI Richards Town and UPI details.
+
+### Tab 4: Vendor List (`/vendors`)
+- **Fields**: Vendor Name, Mobile, Kaam (Specialty Work), Rate, Payment Dena Hai (Payable Balance), Status.
+- Seeded with Veera Glass (Toughening ₹135/sqft), Wender Sachin (Profiles ₹430/sqft), and Royal Marble Works (Marble Inlay ₹250/sqft).
+
+### Tab 5: Purchase / Expense Tracker (`/expenses`)
+- **Fields**: Date, Item, Amount, Vendor, Cash / UPI, GST Bill Hai? (Yes/No), Status.
+- Tracks raw material purchases, transport/unloading conveyance, and site labor with live Cash vs UPI breakdown.
+
+### Tab 6: Month Profit & Partner 30/70 Split (`/profit`)
+- **Auto Formula**:
+  $$\text{Net Profit} = \text{Sales} - \text{Purchases} - \text{Expenses}$$
+  $$\text{Partner Share (30\%)} = \text{Net Profit} \times 0.30$$
+  $$\text{Tumhara Share (70\%)} = \text{Net Profit} \times 0.70$$
+- **Role & Access Rules**: "Partner: VIEW ONLY | Tum: EDIT | Notification: Partner ko jayega Boss".
+- **Daily Business Rule**: "Raat 9 baje - 10 min entry - sab set Boss! 🌙"
+
+### Tab 7: Inventory / Stock Tracker (`/inventory`)
+- **Formula**:
+  $$\text{Baki Hai (Balance)} = \text{Stock In} - \text{Use Hua (Used)}$$
+- Unit tracking in SQFT, RFT, and Nos for clear float glass, toughened glass, mirrors, and aluminium sections.
+
+### Sample Entry: Ravi Sir Wala
+- **Tab 1**: 17/10/26 | Ravi Sir | 8105246582 | Marble+Glass | ₹46,085 | Follow Up
+- **Tab 3**: Total ₹46,085 | Advance ₹0 | Balance ₹46,085 | Payment: PENDING
+- **Tab 4**: Royal Marble Works | 8105200112 | Subcontractor for Ravi Sir marble+glass work | Balance Due ₹12,000 | FOLLOW_UP
+- **Tab 5**: Unloading conveyance at Ravi Sir site Bhartiya City (₹1,600)
+- **Tab 6**: October 2026 Profit auto-formula with partner 30% / owner 70% distribution.
+
+
 ## 1. Calculation Engine (`src/lib/calc`)
 
 ### Rounding & Step Math
@@ -49,6 +95,52 @@ This document outlines the key assumptions and design decisions made for Phase 1
 
 ---
 
+## 7. Royal World Business Management System (7 Tabs A-One Architecture)
+
+Based on user request and infographic specification (`ROYAL WORLD - GOOGLE SHEET Business Management System - 7 Tabs - A-One`), the platform was extended with dedicated modules, unified navigation, and auto calculations:
+
+### Tab 1: Quotation Tracker (`/quotes` & `/`)
+- **Fields**: Date, Customer, Mobile, Work (Description), Amount, Status, Follow-Up Date.
+- **Status Indicator Rules**: Red (`Pending`), Yellow/Amber (`Follow Up`), Green (`Received / Approved`). "Red & Green se pata chalega Boss!"
+
+### Tab 2: Processing (`/factory`)
+- **Factory WIP**: Customer, Work, Vendor/Factory, Material, Site Date, Status.
+- Includes Guillotine Bin Packing sheet cutting optimizer and WhatsApp Plain-Text export.
+
+### Tab 3: Payment Tracker (`/payments`)
+- **Fields**: Customer, Total Amount, Advance Paid, Balance Due, Received?, Follow-Up Date.
+- Milestone tracking: 70% advance on ordering, 20% on pallet delivery, 10% on completion.
+- One-click WhatsApp payment reminders with SBI Richards Town and UPI details.
+
+### Tab 4: Vendor List (`/vendors`)
+- **Fields**: Vendor Name, Mobile, Kaam (Specialty Work), Rate, Payment Dena Hai (Payable Balance), Status.
+- Seeded with Veera Glass (Toughening ₹135/sqft), Wender Sachin (Profiles ₹430/sqft), and Royal Marble Works (Marble Inlay ₹250/sqft).
+
+### Tab 5: Purchase / Expense Tracker (`/expenses`)
+- **Fields**: Date, Item, Amount, Vendor, Cash / UPI, GST Bill Hai? (Yes/No), Status.
+- Tracks raw material purchases, transport/unloading conveyance, and site labor with live Cash vs UPI breakdown.
+
+### Tab 6: Month Profit & Partner 30/70 Split (`/profit`)
+- **Auto Formula**:
+  $$\text{Net Profit} = \text{Sales} - \text{Purchases} - \text{Expenses}$$
+  $$\text{Partner Share (30\%)} = \text{Net Profit} \times 0.30$$
+  $$\text{Tumhara Share (70\%)} = \text{Net Profit} \times 0.70$$
+- **Role & Access Rules**: "Partner: VIEW ONLY | Tum: EDIT | Notification: Partner ko jayega Boss".
+- **Daily Business Rule**: "Raat 9 baje - 10 min entry - sab set Boss! 🌙"
+
+### Tab 7: Inventory / Stock Tracker (`/inventory`)
+- **Formula**:
+  $$\text{Baki Hai (Balance)} = \text{Stock In} - \text{Use Hua (Used)}$$
+- Unit tracking in SQFT, RFT, and Nos for clear float glass, toughened glass, mirrors, and aluminium sections.
+
+### Sample Entry: Ravi Sir Wala
+- **Tab 1**: 17/10/26 | Ravi Sir | 8105246582 | Marble+Glass | ₹46,085 | Follow Up
+- **Tab 3**: Total ₹46,085 | Advance ₹0 | Balance ₹46,085 | Payment: PENDING
+- **Tab 4**: Royal Marble Works | 8105200112 | Subcontractor for Ravi Sir marble+glass work | Balance Due ₹12,000 | FOLLOW_UP
+- **Tab 5**: Unloading conveyance at Ravi Sir site Bhartiya City (₹1,600)
+- **Tab 6**: October 2026 Profit auto-formula with partner 30% / owner 70% distribution.
+
+
 ## 2. Database Schema & Prisma
 
 - **Provider**: SQLite with `dev.db`.
@@ -63,6 +155,52 @@ This document outlines the key assumptions and design decisions made for Phase 1
 - **Indexes**: Added on queryable fields including `quoteNumber`, `status`, `customerId`, `factoryId`, `name`, `phone`, `deletedAt`, and `createdAt`.
 
 ---
+
+## 7. Royal World Business Management System (7 Tabs A-One Architecture)
+
+Based on user request and infographic specification (`ROYAL WORLD - GOOGLE SHEET Business Management System - 7 Tabs - A-One`), the platform was extended with dedicated modules, unified navigation, and auto calculations:
+
+### Tab 1: Quotation Tracker (`/quotes` & `/`)
+- **Fields**: Date, Customer, Mobile, Work (Description), Amount, Status, Follow-Up Date.
+- **Status Indicator Rules**: Red (`Pending`), Yellow/Amber (`Follow Up`), Green (`Received / Approved`). "Red & Green se pata chalega Boss!"
+
+### Tab 2: Processing (`/factory`)
+- **Factory WIP**: Customer, Work, Vendor/Factory, Material, Site Date, Status.
+- Includes Guillotine Bin Packing sheet cutting optimizer and WhatsApp Plain-Text export.
+
+### Tab 3: Payment Tracker (`/payments`)
+- **Fields**: Customer, Total Amount, Advance Paid, Balance Due, Received?, Follow-Up Date.
+- Milestone tracking: 70% advance on ordering, 20% on pallet delivery, 10% on completion.
+- One-click WhatsApp payment reminders with SBI Richards Town and UPI details.
+
+### Tab 4: Vendor List (`/vendors`)
+- **Fields**: Vendor Name, Mobile, Kaam (Specialty Work), Rate, Payment Dena Hai (Payable Balance), Status.
+- Seeded with Veera Glass (Toughening ₹135/sqft), Wender Sachin (Profiles ₹430/sqft), and Royal Marble Works (Marble Inlay ₹250/sqft).
+
+### Tab 5: Purchase / Expense Tracker (`/expenses`)
+- **Fields**: Date, Item, Amount, Vendor, Cash / UPI, GST Bill Hai? (Yes/No), Status.
+- Tracks raw material purchases, transport/unloading conveyance, and site labor with live Cash vs UPI breakdown.
+
+### Tab 6: Month Profit & Partner 30/70 Split (`/profit`)
+- **Auto Formula**:
+  $$\text{Net Profit} = \text{Sales} - \text{Purchases} - \text{Expenses}$$
+  $$\text{Partner Share (30\%)} = \text{Net Profit} \times 0.30$$
+  $$\text{Tumhara Share (70\%)} = \text{Net Profit} \times 0.70$$
+- **Role & Access Rules**: "Partner: VIEW ONLY | Tum: EDIT | Notification: Partner ko jayega Boss".
+- **Daily Business Rule**: "Raat 9 baje - 10 min entry - sab set Boss! 🌙"
+
+### Tab 7: Inventory / Stock Tracker (`/inventory`)
+- **Formula**:
+  $$\text{Baki Hai (Balance)} = \text{Stock In} - \text{Use Hua (Used)}$$
+- Unit tracking in SQFT, RFT, and Nos for clear float glass, toughened glass, mirrors, and aluminium sections.
+
+### Sample Entry: Ravi Sir Wala
+- **Tab 1**: 17/10/26 | Ravi Sir | 8105246582 | Marble+Glass | ₹46,085 | Follow Up
+- **Tab 3**: Total ₹46,085 | Advance ₹0 | Balance ₹46,085 | Payment: PENDING
+- **Tab 4**: Royal Marble Works | 8105200112 | Subcontractor for Ravi Sir marble+glass work | Balance Due ₹12,000 | FOLLOW_UP
+- **Tab 5**: Unloading conveyance at Ravi Sir site Bhartiya City (₹1,600)
+- **Tab 6**: October 2026 Profit auto-formula with partner 30% / owner 70% distribution.
+
 
 ## 3. Seed Data
 
@@ -84,6 +222,52 @@ This document outlines the key assumptions and design decisions made for Phase 1
 
 ---
 
+## 7. Royal World Business Management System (7 Tabs A-One Architecture)
+
+Based on user request and infographic specification (`ROYAL WORLD - GOOGLE SHEET Business Management System - 7 Tabs - A-One`), the platform was extended with dedicated modules, unified navigation, and auto calculations:
+
+### Tab 1: Quotation Tracker (`/quotes` & `/`)
+- **Fields**: Date, Customer, Mobile, Work (Description), Amount, Status, Follow-Up Date.
+- **Status Indicator Rules**: Red (`Pending`), Yellow/Amber (`Follow Up`), Green (`Received / Approved`). "Red & Green se pata chalega Boss!"
+
+### Tab 2: Processing (`/factory`)
+- **Factory WIP**: Customer, Work, Vendor/Factory, Material, Site Date, Status.
+- Includes Guillotine Bin Packing sheet cutting optimizer and WhatsApp Plain-Text export.
+
+### Tab 3: Payment Tracker (`/payments`)
+- **Fields**: Customer, Total Amount, Advance Paid, Balance Due, Received?, Follow-Up Date.
+- Milestone tracking: 70% advance on ordering, 20% on pallet delivery, 10% on completion.
+- One-click WhatsApp payment reminders with SBI Richards Town and UPI details.
+
+### Tab 4: Vendor List (`/vendors`)
+- **Fields**: Vendor Name, Mobile, Kaam (Specialty Work), Rate, Payment Dena Hai (Payable Balance), Status.
+- Seeded with Veera Glass (Toughening ₹135/sqft), Wender Sachin (Profiles ₹430/sqft), and Royal Marble Works (Marble Inlay ₹250/sqft).
+
+### Tab 5: Purchase / Expense Tracker (`/expenses`)
+- **Fields**: Date, Item, Amount, Vendor, Cash / UPI, GST Bill Hai? (Yes/No), Status.
+- Tracks raw material purchases, transport/unloading conveyance, and site labor with live Cash vs UPI breakdown.
+
+### Tab 6: Month Profit & Partner 30/70 Split (`/profit`)
+- **Auto Formula**:
+  $$\text{Net Profit} = \text{Sales} - \text{Purchases} - \text{Expenses}$$
+  $$\text{Partner Share (30\%)} = \text{Net Profit} \times 0.30$$
+  $$\text{Tumhara Share (70\%)} = \text{Net Profit} \times 0.70$$
+- **Role & Access Rules**: "Partner: VIEW ONLY | Tum: EDIT | Notification: Partner ko jayega Boss".
+- **Daily Business Rule**: "Raat 9 baje - 10 min entry - sab set Boss! 🌙"
+
+### Tab 7: Inventory / Stock Tracker (`/inventory`)
+- **Formula**:
+  $$\text{Baki Hai (Balance)} = \text{Stock In} - \text{Use Hua (Used)}$$
+- Unit tracking in SQFT, RFT, and Nos for clear float glass, toughened glass, mirrors, and aluminium sections.
+
+### Sample Entry: Ravi Sir Wala
+- **Tab 1**: 17/10/26 | Ravi Sir | 8105246582 | Marble+Glass | ₹46,085 | Follow Up
+- **Tab 3**: Total ₹46,085 | Advance ₹0 | Balance ₹46,085 | Payment: PENDING
+- **Tab 4**: Royal Marble Works | 8105200112 | Subcontractor for Ravi Sir marble+glass work | Balance Due ₹12,000 | FOLLOW_UP
+- **Tab 5**: Unloading conveyance at Ravi Sir site Bhartiya City (₹1,600)
+- **Tab 6**: October 2026 Profit auto-formula with partner 30% / owner 70% distribution.
+
+
 ## 4. Phase 2 & 3: Master Sheet, Quotes Registry & Revisions
 
 - **MasterRow Table**: Stores all Excel-like grid rows independently with per-row client metadata, auto-saved to SQLite with debounce.
@@ -99,6 +283,52 @@ This document outlines the key assumptions and design decisions made for Phase 1
 
 ---
 
+## 7. Royal World Business Management System (7 Tabs A-One Architecture)
+
+Based on user request and infographic specification (`ROYAL WORLD - GOOGLE SHEET Business Management System - 7 Tabs - A-One`), the platform was extended with dedicated modules, unified navigation, and auto calculations:
+
+### Tab 1: Quotation Tracker (`/quotes` & `/`)
+- **Fields**: Date, Customer, Mobile, Work (Description), Amount, Status, Follow-Up Date.
+- **Status Indicator Rules**: Red (`Pending`), Yellow/Amber (`Follow Up`), Green (`Received / Approved`). "Red & Green se pata chalega Boss!"
+
+### Tab 2: Processing (`/factory`)
+- **Factory WIP**: Customer, Work, Vendor/Factory, Material, Site Date, Status.
+- Includes Guillotine Bin Packing sheet cutting optimizer and WhatsApp Plain-Text export.
+
+### Tab 3: Payment Tracker (`/payments`)
+- **Fields**: Customer, Total Amount, Advance Paid, Balance Due, Received?, Follow-Up Date.
+- Milestone tracking: 70% advance on ordering, 20% on pallet delivery, 10% on completion.
+- One-click WhatsApp payment reminders with SBI Richards Town and UPI details.
+
+### Tab 4: Vendor List (`/vendors`)
+- **Fields**: Vendor Name, Mobile, Kaam (Specialty Work), Rate, Payment Dena Hai (Payable Balance), Status.
+- Seeded with Veera Glass (Toughening ₹135/sqft), Wender Sachin (Profiles ₹430/sqft), and Royal Marble Works (Marble Inlay ₹250/sqft).
+
+### Tab 5: Purchase / Expense Tracker (`/expenses`)
+- **Fields**: Date, Item, Amount, Vendor, Cash / UPI, GST Bill Hai? (Yes/No), Status.
+- Tracks raw material purchases, transport/unloading conveyance, and site labor with live Cash vs UPI breakdown.
+
+### Tab 6: Month Profit & Partner 30/70 Split (`/profit`)
+- **Auto Formula**:
+  $$\text{Net Profit} = \text{Sales} - \text{Purchases} - \text{Expenses}$$
+  $$\text{Partner Share (30\%)} = \text{Net Profit} \times 0.30$$
+  $$\text{Tumhara Share (70\%)} = \text{Net Profit} \times 0.70$$
+- **Role & Access Rules**: "Partner: VIEW ONLY | Tum: EDIT | Notification: Partner ko jayega Boss".
+- **Daily Business Rule**: "Raat 9 baje - 10 min entry - sab set Boss! 🌙"
+
+### Tab 7: Inventory / Stock Tracker (`/inventory`)
+- **Formula**:
+  $$\text{Baki Hai (Balance)} = \text{Stock In} - \text{Use Hua (Used)}$$
+- Unit tracking in SQFT, RFT, and Nos for clear float glass, toughened glass, mirrors, and aluminium sections.
+
+### Sample Entry: Ravi Sir Wala
+- **Tab 1**: 17/10/26 | Ravi Sir | 8105246582 | Marble+Glass | ₹46,085 | Follow Up
+- **Tab 3**: Total ₹46,085 | Advance ₹0 | Balance ₹46,085 | Payment: PENDING
+- **Tab 4**: Royal Marble Works | 8105200112 | Subcontractor for Ravi Sir marble+glass work | Balance Due ₹12,000 | FOLLOW_UP
+- **Tab 5**: Unloading conveyance at Ravi Sir site Bhartiya City (₹1,600)
+- **Tab 6**: October 2026 Profit auto-formula with partner 30% / owner 70% distribution.
+
+
 ## 5. Phase 4: Factory Sheet & Guillotine Cutting Optimizer
 
 - **Guillotine Bin Packing**:
@@ -111,6 +341,52 @@ This document outlines the key assumptions and design decisions made for Phase 1
   - Formats plain-text lists for WhatsApp sharing.
 
 ---
+
+## 7. Royal World Business Management System (7 Tabs A-One Architecture)
+
+Based on user request and infographic specification (`ROYAL WORLD - GOOGLE SHEET Business Management System - 7 Tabs - A-One`), the platform was extended with dedicated modules, unified navigation, and auto calculations:
+
+### Tab 1: Quotation Tracker (`/quotes` & `/`)
+- **Fields**: Date, Customer, Mobile, Work (Description), Amount, Status, Follow-Up Date.
+- **Status Indicator Rules**: Red (`Pending`), Yellow/Amber (`Follow Up`), Green (`Received / Approved`). "Red & Green se pata chalega Boss!"
+
+### Tab 2: Processing (`/factory`)
+- **Factory WIP**: Customer, Work, Vendor/Factory, Material, Site Date, Status.
+- Includes Guillotine Bin Packing sheet cutting optimizer and WhatsApp Plain-Text export.
+
+### Tab 3: Payment Tracker (`/payments`)
+- **Fields**: Customer, Total Amount, Advance Paid, Balance Due, Received?, Follow-Up Date.
+- Milestone tracking: 70% advance on ordering, 20% on pallet delivery, 10% on completion.
+- One-click WhatsApp payment reminders with SBI Richards Town and UPI details.
+
+### Tab 4: Vendor List (`/vendors`)
+- **Fields**: Vendor Name, Mobile, Kaam (Specialty Work), Rate, Payment Dena Hai (Payable Balance), Status.
+- Seeded with Veera Glass (Toughening ₹135/sqft), Wender Sachin (Profiles ₹430/sqft), and Royal Marble Works (Marble Inlay ₹250/sqft).
+
+### Tab 5: Purchase / Expense Tracker (`/expenses`)
+- **Fields**: Date, Item, Amount, Vendor, Cash / UPI, GST Bill Hai? (Yes/No), Status.
+- Tracks raw material purchases, transport/unloading conveyance, and site labor with live Cash vs UPI breakdown.
+
+### Tab 6: Month Profit & Partner 30/70 Split (`/profit`)
+- **Auto Formula**:
+  $$\text{Net Profit} = \text{Sales} - \text{Purchases} - \text{Expenses}$$
+  $$\text{Partner Share (30\%)} = \text{Net Profit} \times 0.30$$
+  $$\text{Tumhara Share (70\%)} = \text{Net Profit} \times 0.70$$
+- **Role & Access Rules**: "Partner: VIEW ONLY | Tum: EDIT | Notification: Partner ko jayega Boss".
+- **Daily Business Rule**: "Raat 9 baje - 10 min entry - sab set Boss! 🌙"
+
+### Tab 7: Inventory / Stock Tracker (`/inventory`)
+- **Formula**:
+  $$\text{Baki Hai (Balance)} = \text{Stock In} - \text{Use Hua (Used)}$$
+- Unit tracking in SQFT, RFT, and Nos for clear float glass, toughened glass, mirrors, and aluminium sections.
+
+### Sample Entry: Ravi Sir Wala
+- **Tab 1**: 17/10/26 | Ravi Sir | 8105246582 | Marble+Glass | ₹46,085 | Follow Up
+- **Tab 3**: Total ₹46,085 | Advance ₹0 | Balance ₹46,085 | Payment: PENDING
+- **Tab 4**: Royal Marble Works | 8105200112 | Subcontractor for Ravi Sir marble+glass work | Balance Due ₹12,000 | FOLLOW_UP
+- **Tab 5**: Unloading conveyance at Ravi Sir site Bhartiya City (₹1,600)
+- **Tab 6**: October 2026 Profit auto-formula with partner 30% / owner 70% distribution.
+
 
 ## 6. Phase 5: Payments, Milestones, Dashboard & Quality
 
@@ -127,6 +403,52 @@ This document outlines the key assumptions and design decisions made for Phase 1
   - JSON backup/restore provides portable multi-table snapshots.
 
 ---
+
+## 7. Royal World Business Management System (7 Tabs A-One Architecture)
+
+Based on user request and infographic specification (`ROYAL WORLD - GOOGLE SHEET Business Management System - 7 Tabs - A-One`), the platform was extended with dedicated modules, unified navigation, and auto calculations:
+
+### Tab 1: Quotation Tracker (`/quotes` & `/`)
+- **Fields**: Date, Customer, Mobile, Work (Description), Amount, Status, Follow-Up Date.
+- **Status Indicator Rules**: Red (`Pending`), Yellow/Amber (`Follow Up`), Green (`Received / Approved`). "Red & Green se pata chalega Boss!"
+
+### Tab 2: Processing (`/factory`)
+- **Factory WIP**: Customer, Work, Vendor/Factory, Material, Site Date, Status.
+- Includes Guillotine Bin Packing sheet cutting optimizer and WhatsApp Plain-Text export.
+
+### Tab 3: Payment Tracker (`/payments`)
+- **Fields**: Customer, Total Amount, Advance Paid, Balance Due, Received?, Follow-Up Date.
+- Milestone tracking: 70% advance on ordering, 20% on pallet delivery, 10% on completion.
+- One-click WhatsApp payment reminders with SBI Richards Town and UPI details.
+
+### Tab 4: Vendor List (`/vendors`)
+- **Fields**: Vendor Name, Mobile, Kaam (Specialty Work), Rate, Payment Dena Hai (Payable Balance), Status.
+- Seeded with Veera Glass (Toughening ₹135/sqft), Wender Sachin (Profiles ₹430/sqft), and Royal Marble Works (Marble Inlay ₹250/sqft).
+
+### Tab 5: Purchase / Expense Tracker (`/expenses`)
+- **Fields**: Date, Item, Amount, Vendor, Cash / UPI, GST Bill Hai? (Yes/No), Status.
+- Tracks raw material purchases, transport/unloading conveyance, and site labor with live Cash vs UPI breakdown.
+
+### Tab 6: Month Profit & Partner 30/70 Split (`/profit`)
+- **Auto Formula**:
+  $$\text{Net Profit} = \text{Sales} - \text{Purchases} - \text{Expenses}$$
+  $$\text{Partner Share (30\%)} = \text{Net Profit} \times 0.30$$
+  $$\text{Tumhara Share (70\%)} = \text{Net Profit} \times 0.70$$
+- **Role & Access Rules**: "Partner: VIEW ONLY | Tum: EDIT | Notification: Partner ko jayega Boss".
+- **Daily Business Rule**: "Raat 9 baje - 10 min entry - sab set Boss! 🌙"
+
+### Tab 7: Inventory / Stock Tracker (`/inventory`)
+- **Formula**:
+  $$\text{Baki Hai (Balance)} = \text{Stock In} - \text{Use Hua (Used)}$$
+- Unit tracking in SQFT, RFT, and Nos for clear float glass, toughened glass, mirrors, and aluminium sections.
+
+### Sample Entry: Ravi Sir Wala
+- **Tab 1**: 17/10/26 | Ravi Sir | 8105246582 | Marble+Glass | ₹46,085 | Follow Up
+- **Tab 3**: Total ₹46,085 | Advance ₹0 | Balance ₹46,085 | Payment: PENDING
+- **Tab 4**: Royal Marble Works | 8105200112 | Subcontractor for Ravi Sir marble+glass work | Balance Due ₹12,000 | FOLLOW_UP
+- **Tab 5**: Unloading conveyance at Ravi Sir site Bhartiya City (₹1,600)
+- **Tab 6**: October 2026 Profit auto-formula with partner 30% / owner 70% distribution.
+
 
 ## 7. Multi-Customer Google Sheet Automation (`GCE Meas_42` / `_Notebook Size's @26L`)
 

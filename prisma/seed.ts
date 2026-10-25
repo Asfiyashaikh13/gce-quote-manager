@@ -147,11 +147,12 @@ async function main() {
   }
   console.log("Seeded products with default rates");
 
-  // 5. Customer: Mr. Fayaz
+  // 5. Customer: Mr. Fayaz & Customer: Ravi Sir (Sample Entry)
   const customer = await prisma.customer.upsert({
     where: { id: "customer-fayaz" },
     update: {
       name: "Mr. Fayaz",
+      phone: "9945988552",
       address: "Flat 27",
       building: "Main Building",
       flat: "27",
@@ -160,9 +161,32 @@ async function main() {
     create: {
       id: "customer-fayaz",
       name: "Mr. Fayaz",
+      phone: "9945988552",
       address: "Flat 27",
       building: "Main Building",
       flat: "27",
+      state: "Karnataka",
+      createdById: admin.id,
+    },
+  });
+
+  const customerRavi = await prisma.customer.upsert({
+    where: { id: "customer-ravi-sir" },
+    update: {
+      name: "Ravi Sir",
+      phone: "8105246582",
+      address: "Villa 12, Bhartiya City",
+      building: "Bhartiya City",
+      flat: "12",
+      state: "Karnataka",
+    },
+    create: {
+      id: "customer-ravi-sir",
+      name: "Ravi Sir",
+      phone: "8105246582",
+      address: "Villa 12, Bhartiya City",
+      building: "Bhartiya City",
+      flat: "12",
       state: "Karnataka",
       createdById: admin.id,
     },
@@ -278,6 +302,105 @@ async function main() {
   console.log(`Seeded sample quote ${quote.quoteNumber} for ${quote.customerName}`);
   console.log(`Totals -> SubTotal: ${quote.subTotal}, GST: ${quote.gstTotal}, GrandTotal: ${quote.grandTotal}, Display: ${quote.displayTotal}`);
 
+  // 6b. Sample Entry: Ravi Sir (Infographic Spec: 17/10/26 | Ravi Sir | 8105246582 | Marble+Glass | 46,085 | Follow Up)
+  const existingRaviQuote = await prisma.quote.findFirst({
+    where: { quoteNumber: "QT-171026-01" },
+  });
+  if (existingRaviQuote) {
+    await prisma.quote.delete({ where: { id: existingRaviQuote.id } });
+  }
+
+  const raviQuote = await prisma.quote.create({
+    data: {
+      quoteNumber: "QT-171026-01",
+      version: 1,
+      status: QuoteStatus.SENT,
+      customerId: customerRavi.id,
+      customerName: "Ravi Sir",
+      customerPhone: "8105246582",
+      customerAddress: "Villa 12, Bhartiya City",
+      customerBuilding: "Bhartiya City",
+      customerFlat: "12",
+      customerState: "Karnataka",
+      destinationState: "Karnataka",
+      factoryId: factoryVeera.id,
+      discountType: DiscountType.NONE,
+      discountValue: 0,
+      freight: 0,
+      validUntil,
+      subTotal: 39055.08,
+      cgstTotal: 3514.96,
+      sgstTotal: 3514.96,
+      igstTotal: 0,
+      gstTotal: 7029.92,
+      grandTotal: 46085,
+      roundOff: 0,
+      displayTotal: 46085,
+      displayTotalWords: "Forty-Six Thousand Eighty-Five Rupees Only",
+      createdById: admin.id,
+      revisionNotes: "Marble+Glass architectural installation - Follow Up required",
+      items: {
+        create: [
+          {
+            itemOrder: 1,
+            description: "Custom Marble Inlay + 12mm Toughened Glass",
+            frameHeightMm: 1200,
+            frameWidthMm: 900,
+            quantity: 2,
+            rate: 850,
+            roundedHeightMm: 1219.2,
+            roundedWidthMm: 914.4,
+            glassCutHeightMm: 1193,
+            glassCutWidthMm: 893,
+            sqft: 24.0,
+            runningFeet: 28.0,
+            grossAmount: 20400,
+            discountAmount: 0,
+            netAmount: 20400,
+            taxableAmount: 20400,
+            cgstRate: 9,
+            sgstRate: 9,
+            igstRate: 0,
+            cgstAmount: 1836,
+            sgstAmount: 1836,
+            igstAmount: 0,
+            gstAmount: 3672,
+            totalAmount: 24072,
+            createdById: admin.id,
+          },
+          {
+            itemOrder: 2,
+            description: "Beveled Edge Glass with Brass Trim Profiles",
+            frameHeightMm: 1500,
+            frameWidthMm: 600,
+            quantity: 2,
+            rate: 975,
+            roundedHeightMm: 1524,
+            roundedWidthMm: 609.6,
+            glassCutHeightMm: 1493,
+            glassCutWidthMm: 593,
+            sqft: 20.0,
+            runningFeet: 28.0,
+            grossAmount: 18655.08,
+            discountAmount: 0,
+            netAmount: 18655.08,
+            taxableAmount: 18655.08,
+            cgstRate: 9,
+            sgstRate: 9,
+            igstRate: 0,
+            cgstAmount: 1678.96,
+            sgstAmount: 1678.96,
+            igstAmount: 0,
+            gstAmount: 3357.92,
+            totalAmount: 22013,
+            createdById: admin.id,
+          },
+        ],
+      },
+    },
+  });
+  console.log(`Seeded Ravi Sir quote QT-171026-01 (Total: ${raviQuote.displayTotal})`);
+
   // 7. Seed Master Sheet Rows (Phase 2 Master Sheet with per-row client metadata)
   await prisma.masterRow.deleteMany({});
   for (let i = 0; i < calculation.items.length; i++) {
@@ -315,7 +438,245 @@ async function main() {
       },
     });
   }
-  console.log(`Seeded 7 master sheet rows for Mr. Fayaz flat 27`);
+
+  // Add Ravi Sir sample rows into Master Sheet
+  const raviRows = [
+    {
+      rowOrder: 8,
+      clientName: "Ravi Sir",
+      flat: "12",
+      building: "Bhartiya City",
+      state: "Karnataka",
+      factory: "Royal Marble Works",
+      status: "Follow Up",
+      notes: "Marble+Glass living room partition - 8105246582",
+      description: "Custom Marble Inlay + 12mm Toughened Glass",
+      frameHeightMm: 1200,
+      frameWidthMm: 900,
+      quantity: 2,
+      rate: 850,
+      roundedHeightMm: 1219.2,
+      roundedWidthMm: 914.4,
+      glassCutHeightMm: 1193,
+      glassCutWidthMm: 893,
+      sqft: 24.0,
+      runningFeet: 28.0,
+      netAmount: 20400,
+      gstAmount: 3672,
+      totalAmount: 24072,
+    },
+    {
+      rowOrder: 9,
+      clientName: "Ravi Sir",
+      flat: "12",
+      building: "Bhartiya City",
+      state: "Karnataka",
+      factory: "Veera Glass",
+      status: "Follow Up",
+      notes: "Beveled edge glass with brass profiles - 8105246582",
+      description: "Beveled Edge Glass with Brass Trim Profiles",
+      frameHeightMm: 1500,
+      frameWidthMm: 600,
+      quantity: 2,
+      rate: 975,
+      roundedHeightMm: 1524,
+      roundedWidthMm: 609.6,
+      glassCutHeightMm: 1493,
+      glassCutWidthMm: 593,
+      sqft: 20.0,
+      runningFeet: 28.0,
+      netAmount: 18655.08,
+      gstAmount: 3357.92,
+      totalAmount: 22013,
+    },
+  ];
+
+  for (const r of raviRows) {
+    await prisma.masterRow.create({
+      data: {
+        ...r,
+        discountType: "NONE",
+        discountValue: 0,
+      },
+    });
+  }
+  console.log(`Seeded 7 master sheet rows for Mr. Fayaz flat 27 and 2 rows for Ravi Sir`);
+
+  // 8. Seed Vendors (Tab 4: Vendor List)
+  const vendors = [
+    {
+      name: "Veera Glass",
+      mobile: "9845012345",
+      workType: "Glass Toughening & Polish",
+      rate: "₹135/sqft",
+      balanceDue: 14200,
+      status: "PENDING",
+      notes: "Main glass processor for Manyata & Hebbal sites",
+    },
+    {
+      name: "Wender Sachin",
+      mobile: "9886098765",
+      workType: "Aluminium Profiles & Fabrication",
+      rate: "₹430/sqft",
+      balanceDue: 8500,
+      status: "PENDING",
+      notes: "Aluminium section supplier and cutter",
+    },
+    {
+      name: "Royal Marble Works",
+      mobile: "8105200112",
+      workType: "Marble Inlay & Edge Chamfering",
+      rate: "₹250/sqft",
+      balanceDue: 12000,
+      status: "FOLLOW_UP",
+      notes: "Subcontractor for Ravi Sir marble+glass work",
+    },
+  ];
+
+  for (const v of vendors) {
+    await prisma.vendor.upsert({
+      where: { id: `vendor-${v.name.toLowerCase().replace(/\s+/g, "-")}` },
+      update: v,
+      create: {
+        id: `vendor-${v.name.toLowerCase().replace(/\s+/g, "-")}` ,
+        ...v,
+      },
+    });
+  }
+  console.log("Seeded Tab 4: Vendors");
+
+  // 9. Seed Purchases & Expenses (Tab 5)
+  const expenses = [
+    {
+      item: "12mm Toughened Glass Float",
+      amount: 14200,
+      vendorName: "Veera Glass",
+      paymentMode: "UPI",
+      hasBill: true,
+      category: "PURCHASE",
+      status: "RECEIVED",
+      notes: "Invoice #VG-942 - Paid via 9945988552@upi",
+    },
+    {
+      item: "Hardware Screws & Silicone Sealant",
+      amount: 2850,
+      vendorName: "Sri Balaji Hardware",
+      paymentMode: "CASH",
+      hasBill: true,
+      category: "SITE_EXPENSE",
+      status: "RECEIVED",
+      notes: "Clear silicone tubes (qty 12) + fasteners",
+    },
+    {
+      item: "Site Labor & Unloading Conveyance",
+      amount: 1600,
+      vendorName: "Local Tempo Transport",
+      paymentMode: "CASH",
+      hasBill: false,
+      category: "SITE_EXPENSE",
+      status: "RECEIVED",
+      notes: "Unloading at Ravi Sir site - Bhartiya City",
+    },
+  ];
+
+  for (let i = 0; i < expenses.length; i++) {
+    const e = expenses[i];
+    await prisma.expense.upsert({
+      where: { id: `expense-seed-${i + 1}` },
+      update: e,
+      create: {
+        id: `expense-seed-${i + 1}`,
+        ...e,
+      },
+    });
+  }
+  console.log("Seeded Tab 5: Purchases & Expenses");
+
+  // 10. Seed Monthly Profit & 30/70 Partner Split (Tab 6)
+  await prisma.profitMonth.upsert({
+    where: { monthYear: "10/2026" },
+    update: {
+      salesAmount: 118500,
+      purchaseAmount: 52400,
+      expenseAmount: 14250,
+      profitAmount: 51850,
+      partnerPercent: 30,
+      partnerAmount: 15555,
+      ownerAmount: 36295,
+      status: "RECEIVED",
+      notes: "October 2026: Profit = Sale (1,18,500) - Purchase (52,400) - Expense (14,250) = 51,850. Partner 30% = 15,555, Tum 70% = 36,295",
+    },
+    create: {
+      id: "profit-month-10-2026",
+      monthYear: "10/2026",
+      salesAmount: 118500,
+      purchaseAmount: 52400,
+      expenseAmount: 14250,
+      profitAmount: 51850,
+      partnerPercent: 30,
+      partnerAmount: 15555,
+      ownerAmount: 36295,
+      status: "RECEIVED",
+      notes: "October 2026: Profit = Sale (1,18,500) - Purchase (52,400) - Expense (14,250) = 51,850. Partner 30% = 15,555, Tum 70% = 36,295",
+    },
+  });
+  console.log("Seeded Tab 6: Monthly Profit & Partner 30/70 Split");
+
+  // 11. Seed Inventory & Stock (Tab 7)
+  const stockItems = [
+    {
+      itemName: "8mm Plain Glass",
+      category: "GLASS",
+      stockIn: 450,
+      stockUsed: 280,
+      stockBalance: 170,
+      unit: "SQFT",
+      status: "IN_STOCK",
+      notes: "Standard clear float sheets",
+    },
+    {
+      itemName: "12mm Toughened Glass",
+      category: "GLASS",
+      stockIn: 600,
+      stockUsed: 350,
+      stockBalance: 250,
+      unit: "SQFT",
+      status: "IN_STOCK",
+      notes: "High strength architectural glass",
+    },
+    {
+      itemName: "5mm Mirror Polished",
+      category: "GLASS",
+      stockIn: 300,
+      stockUsed: 180,
+      stockBalance: 120,
+      unit: "SQFT",
+      status: "IN_STOCK",
+      notes: "Silver mirror with polished bevel edges",
+    },
+    {
+      itemName: "Aluminium Shutter Profiles",
+      category: "AL_PROFILE",
+      stockIn: 250,
+      stockUsed: 160,
+      stockBalance: 90,
+      unit: "RFT",
+      status: "IN_STOCK",
+      notes: "Anodized black & champagne finish",
+    },
+  ];
+
+  for (const s of stockItems) {
+    await prisma.inventoryStock.upsert({
+      where: { itemName: s.itemName },
+      update: s,
+      create: {
+        id: `stock-${s.itemName.toLowerCase().replace(/\s+/g, "-")}`,
+        ...s,
+      },
+    });
+  }
+  console.log("Seeded Tab 7: Inventory & Stock");
 }
 
 main()

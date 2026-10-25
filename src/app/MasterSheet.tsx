@@ -6,6 +6,7 @@ import * as XLSX from "xlsx";
 import { MasterSheetRowData } from "@/lib/sheet/types";
 import { groupRowsByCustomer, GroupedCustomerQuote } from "@/lib/sheet/grouping";
 import { calculateQuoteItem, formatIndianCurrency, numberToIndianWords } from "@/lib/calc";
+import { SevenTabsNav } from "@/components/SevenTabsNav";
 
 interface ProductOption {
   id: string;
@@ -724,6 +725,9 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans select-none" onPaste={handlePaste}>
+      {/* 7 Tabs Royal World Navigation Bar */}
+      <SevenTabsNav currentTab="quotes" />
+
       {/* 1. Google Sheets App Header & Ribbon */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
         <div className="px-4 py-1.5 flex items-center justify-between">
@@ -1880,34 +1884,66 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
 
           <span className="text-slate-300">|</span>
 
-          {/* App Navigation Links */}
+          {/* 7 Tabs Links */}
           <Link
             href="/quotes"
-            className="px-2.5 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
+            className="px-2 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
+            title="Tab 1: Quotations Tracker"
           >
-            Quotes Registry
+            Tab 1: Quotes
           </Link>
           <Link
             href="/factory"
-            className="px-2.5 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
+            className="px-2 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
+            title="Tab 2: Processing & Factory WIP"
           >
-            Factory Sheet
+            Tab 2: Processing
           </Link>
           <Link
             href="/payments"
-            className="px-2.5 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
+            className="px-2 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
+            title="Tab 3: Payment Tracker"
           >
-            Payments
+            Tab 3: Payments
           </Link>
           <Link
+            href="/vendors"
+            className="px-2 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
+            title="Tab 4: Vendor List & Payment Dena Hai"
+          >
+            Tab 4: Vendors
+          </Link>
+          <Link
+            href="/expenses"
+            className="px-2 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
+            title="Tab 5: Purchase / Expense Tracker"
+          >
+            Tab 5: Expenses
+          </Link>
+          <Link
+            href="/profit"
+            className="px-2 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
+            title="Tab 6: Monthly Profit (Partner 30% / Tum 70%)"
+          >
+            Tab 6: Profit 30/70
+          </Link>
+          <Link
+            href="/inventory"
+            className="px-2 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
+            title="Tab 7: Inventory / Stock Tracker"
+          >
+            Tab 7: Stock
+          </Link>
+          <span className="text-slate-300">|</span>
+          <Link
             href="/dashboard"
-            className="px-2.5 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
+            className="px-2 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
           >
             Dashboard
           </Link>
           <Link
             href="/settings"
-            className="px-2.5 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
+            className="px-2 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
           >
             Settings
           </Link>

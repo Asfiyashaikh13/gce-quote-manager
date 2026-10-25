@@ -325,3 +325,86 @@ model AuditLog {
   @@index([performedById])
   @@index([createdAt])
 }
+
+model Vendor {
+  id          String    @id @default(cuid())
+  name        String
+  mobile      String?
+  workType    String?
+  rate        String?
+  balanceDue  Decimal   @default(0)
+  status      String    @default("PENDING")
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  expenses    Expense[]
+
+  @@index([name])
+  @@index([mobile])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model Expense {
+  id          String    @id @default(cuid())
+  date        DateTime  @default(now())
+  item        String
+  amount      Decimal   @default(0)
+  vendorId    String?
+  vendor      Vendor?   @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  vendorName  String?
+  paymentMode String    @default("UPI")
+  hasBill     Boolean   @default(false)
+  category    String?   @default("PURCHASE")
+  status      String    @default("RECEIVED")
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@index([date])
+  @@index([vendorId])
+  @@index([category])
+  @@index([deletedAt])
+}
+
+model ProfitMonth {
+  id             String    @id @default(cuid())
+  monthYear      String    @unique
+  salesAmount    Decimal   @default(0)
+  purchaseAmount Decimal   @default(0)
+  expenseAmount  Decimal   @default(0)
+  profitAmount   Decimal   @default(0)
+  partnerPercent Decimal   @default(30)
+  partnerAmount  Decimal   @default(0)
+  ownerAmount    Decimal   @default(0)
+  status         String    @default("RECEIVED")
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  @@index([monthYear])
+  @@index([deletedAt])
+}
+
+model InventoryStock {
+  id           String    @id @default(cuid())
+  itemName     String    @unique
+  category     String?   @default("GLASS")
+  stockIn      Decimal   @default(0)
+  stockUsed    Decimal   @default(0)
+  stockBalance Decimal   @default(0)
+  unit         String    @default("SQFT")
+  status       String    @default("IN_STOCK")
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  @@index([itemName])
+  @@index([category])
+  @@index([deletedAt])
+}

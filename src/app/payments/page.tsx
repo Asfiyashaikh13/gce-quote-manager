@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { formatIndianCurrency } from "@/lib/calc";
 import { formatPaymentReminderWhatsApp } from "@/lib/payments/milestones";
+import { SevenTabsNav } from "@/components/SevenTabsNav";
 
 interface PaymentRecord {
   id: string;
@@ -213,6 +214,8 @@ export default function PaymentsPage() {
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 pb-20">
+      <SevenTabsNav currentTab="payments" />
+
       {/* Toast */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-2.5 rounded-lg shadow-xl text-sm font-medium flex items-center gap-2">

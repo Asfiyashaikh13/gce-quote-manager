@@ -5,6 +5,7 @@ import Link from "next/link";
 import { FactoryGroup, FactoryCutItem } from "@/lib/factory/types";
 import { formatFactoryWhatsAppText } from "@/lib/factory/grouping";
 import { PieceToCut, StockSheet } from "@/lib/optimizer/guillotine";
+import { SevenTabsNav } from "@/components/SevenTabsNav";
 
 interface OptimizedSheetResponse {
   sheetIndex: number;
@@ -176,6 +177,10 @@ export default function FactoryPage() {
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 pb-20 print:bg-white print:p-0">
+      <div className="print:hidden">
+        <SevenTabsNav currentTab="processing" />
+      </div>
+
       {/* Toast */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-2.5 rounded-lg shadow-xl text-sm font-medium flex items-center gap-2 animate-fade-in print:hidden">

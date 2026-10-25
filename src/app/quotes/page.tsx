@@ -5,6 +5,7 @@ import Link from "next/link";
 import { formatIndianCurrency } from "@/lib/calc";
 import { ALLOWED_STATUS_TRANSITIONS } from "@/lib/quotes/status";
 import { QuoteStatus } from "@prisma/client";
+import { SevenTabsNav } from "@/components/SevenTabsNav";
 
 interface QuoteListItem {
   id: string;
@@ -99,6 +100,8 @@ export default function QuotesListPage() {
 
   return (
     <div className="min-h-screen bg-slate-100 pb-16">
+      <SevenTabsNav currentTab="quotes" />
+
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
