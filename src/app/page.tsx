@@ -21,7 +21,7 @@ async function MasterSheetData() {
       clientName: r.clientName,
       flat: r.flat || "",
       building: r.building || "",
-      category: "",
+      category: r.category || (r.description?.toLowerCase().includes("shutter") ? "Aluminium Shutters" : r.description?.toLowerCase().includes("mirror") ? "Mirrors" : "Architectural Glass"),
       state: r.state || "Karnataka",
       factory: r.factory || "Veera Glass",
       status: r.status || "Draft",

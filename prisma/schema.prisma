@@ -133,6 +133,7 @@ model MasterRow {
   clientName       String    @default("")
   flat             String?   @default("")
   building         String?   @default("")
+  category         String?   @default("")
   state            String    @default("Karnataka")
   factory          String?   @default("Veera Glass")
   status           String    @default("Draft")
@@ -163,6 +164,7 @@ model MasterRow {
   @@index([building])
   @@index([flat])
   @@index([status])
+  @@index([category])
   @@index([rowOrder])
   @@index([deletedAt])
 }
