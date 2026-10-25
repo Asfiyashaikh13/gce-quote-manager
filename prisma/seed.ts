@@ -545,37 +545,43 @@ async function main() {
   }
   console.log("Seeded Tab 4: Vendors");
 
-  // 9. Seed Purchases & Expenses (Tab 5)
+  // 9. Seed Purchases & Expenses (Tab 5 with Owner vs Partner tracking & Project linkage)
   const expenses = [
     {
       item: "12mm Toughened Glass Float",
       amount: 14200,
       vendorName: "Veera Glass",
+      paidBy: "OWNER",
+      projectName: "Ravi Sir - Bhartiya City",
       paymentMode: "UPI",
       hasBill: true,
       category: "PURCHASE",
       status: "RECEIVED",
-      notes: "Invoice #VG-942 - Paid via 9945988552@upi",
+      notes: "Invoice #VG-942 - Paid by Owner via 9945988552@upi",
     },
     {
       item: "Hardware Screws & Silicone Sealant",
       amount: 2850,
       vendorName: "Sri Balaji Hardware",
+      paidBy: "PARTNER",
+      projectName: "Ravi Sir - Bhartiya City",
       paymentMode: "CASH",
       hasBill: true,
       category: "SITE_EXPENSE",
       status: "RECEIVED",
-      notes: "Clear silicone tubes (qty 12) + fasteners",
+      notes: "Clear silicone tubes (qty 12) + fasteners - Paid by Partner",
     },
     {
       item: "Site Labor & Unloading Conveyance",
       amount: 1600,
       vendorName: "Local Tempo Transport",
+      paidBy: "PARTNER",
+      projectName: "Ravi Sir - Bhartiya City",
       paymentMode: "CASH",
       hasBill: false,
       category: "SITE_EXPENSE",
       status: "RECEIVED",
-      notes: "Unloading at Ravi Sir site - Bhartiya City",
+      notes: "Unloading at Ravi Sir site Bhartiya City - Paid by Partner",
     },
   ];
 

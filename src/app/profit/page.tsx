@@ -23,9 +23,15 @@ interface LiveSummary {
   totalSales: number;
   totalPurchases: number;
   totalExpenses: number;
+  totalCosts?: number;
   netProfit: number;
   partner30Percent: number;
   owner70Percent: number;
+  ownerSpent?: number;
+  partnerSpent?: number;
+  partnerFinalPayout?: number;
+  ownerFinalPayout?: number;
+  settlementNote?: string;
   partnerRule: string;
   formula: string;
 }
@@ -285,6 +291,91 @@ export default function ProfitPage() {
               <span className="inline-block px-1.5 py-0.2 bg-emerald-200 text-emerald-900 text-[10px] rounded font-bold mt-1">
                 Owner 70% Share
               </span>
+            </div>
+          </div>
+        )}
+
+        {/* Two-Party Project Expense Reconciliation Card (Zero Confusion) */}
+        {liveSummary && (
+          <div className="p-4 bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-2xl border border-slate-700 shadow-md space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-700">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">⚖️</span>
+                <h3 className="text-sm font-bold text-white">
+                  Shared Project Expense &amp; Payout Reconciliation (No Confusion)
+                </h3>
+              </div>
+              <span className="text-[11px] text-slate-300">
+                Both parties get 100% of out-of-pocket costs reimbursed first, then net profit split 30% / 70%
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Owner Account Payout Box */}
+              <div className="p-3.5 bg-blue-950/60 rounded-xl border border-blue-500/40 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-blue-300 text-xs flex items-center gap-1.5">
+                    <span>👤</span>
+                    <span>Owner Account Payout</span>
+                  </span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded font-bold">
+                    70% Profit + Reimbursed Costs
+                  </span>
+                </div>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between text-slate-300">
+                    <span>Out-of-Pocket Expenses Paid:</span>
+                    <span className="font-mono font-bold text-blue-200">
+                      {formatIndianCurrency(liveSummary.ownerSpent || 0)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-slate-300">
+                    <span>Owner Profit Share (70%):</span>
+                    <span className="font-mono font-bold text-emerald-400">
+                      +{formatIndianCurrency(liveSummary.owner70Percent || 0)}
+                    </span>
+                  </div>
+                  <div className="pt-2 border-t border-blue-800/60 flex justify-between items-center">
+                    <span className="font-bold text-white">Owner Total Take-Home:</span>
+                    <span className="font-mono font-black text-base text-blue-300">
+                      {formatIndianCurrency((liveSummary.ownerSpent || 0) + (liveSummary.owner70Percent || 0))}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Partner Account Payout Box */}
+              <div className="p-3.5 bg-teal-950/60 rounded-xl border border-teal-500/40 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-teal-300 text-xs flex items-center gap-1.5">
+                    <span>🤝</span>
+                    <span>Partner Account Payout</span>
+                  </span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 bg-teal-500/20 text-teal-300 rounded font-bold">
+                    30% Profit + Reimbursed Costs
+                  </span>
+                </div>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between text-slate-300">
+                    <span>Out-of-Pocket Expenses Paid:</span>
+                    <span className="font-mono font-bold text-teal-200">
+                      {formatIndianCurrency(liveSummary.partnerSpent || 0)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-slate-300">
+                    <span>Partner Profit Share (30%):</span>
+                    <span className="font-mono font-bold text-emerald-400">
+                      +{formatIndianCurrency(liveSummary.partner30Percent || 0)}
+                    </span>
+                  </div>
+                  <div className="pt-2 border-t border-teal-800/60 flex justify-between items-center">
+                    <span className="font-bold text-white">Partner Total Take-Home:</span>
+                    <span className="font-mono font-black text-base text-teal-300">
+                      {formatIndianCurrency((liveSummary.partnerSpent || 0) + (liveSummary.partner30Percent || 0))}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}

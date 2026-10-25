@@ -16,7 +16,7 @@ export async function GET() {
 
     const expenses = await prisma.expense.findMany({
       where: { deletedAt: null },
-      select: { amount: true, category: true, date: true },
+      select: { amount: true, category: true, date: true, paidBy: true, projectName: true },
     });
 
     const liveTotalSales = quotes.reduce((acc, q) => acc + q.displayTotal.toNumber(), 0);
@@ -26,9 +26,21 @@ export async function GET() {
     const liveExpenses = expenses
       .filter((e) => e.category !== "PURCHASE")
       .reduce((acc, e) => acc + e.amount.toNumber(), 0);
-    const liveProfit = Math.max(0, liveTotalSales - livePurchases - liveExpenses);
+    const totalCosts = livePurchases + liveExpenses;
+    const liveProfit = Math.max(0, liveTotalSales - totalCosts);
     const livePartner30 = Math.round(liveProfit * 0.3);
     const liveOwner70 = Math.round(liveProfit * 0.7);
+
+    // Two-person breakdown: Who spent what from pocket
+    const liveOwnerSpent = expenses
+      .filter((e) => e.paidBy === "OWNER" || !e.paidBy)
+      .reduce((acc, e) => acc + e.amount.toNumber(), 0);
+    const livePartnerSpent = expenses
+      .filter((e) => e.paidBy === "PARTNER")
+      .reduce((acc, e) => acc + e.amount.toNumber(), 0);
+
+    const livePartnerFinalPayout = livePartner30 + livePartnerSpent;
+    const liveOwnerFinalPayout = liveOwner70 + liveOwnerSpent;
 
     const serialized = profitMonths.map((p) => {
       const sales = p.salesAmount.toNumber();
@@ -62,11 +74,17 @@ export async function GET() {
         totalSales: liveTotalSales,
         totalPurchases: livePurchases,
         totalExpenses: liveExpenses,
+        totalCosts,
         netProfit: liveProfit,
         partner30Percent: livePartner30,
         owner70Percent: liveOwner70,
+        ownerSpent: liveOwnerSpent,
+        partnerSpent: livePartnerSpent,
+        partnerFinalPayout: livePartnerFinalPayout,
+        ownerFinalPayout: liveOwnerFinalPayout,
+        settlementNote: "Both Owner and Partner get 100% of their out-of-pocket project expenses reimbursed + their net profit split (30% / 70%)",
         partnerRule: "Partner: VIEW ONLY | Owner: EDIT",
-        formula: "Net Profit = Sale - Purchase - Expense",
+        formula: "Net Profit = Sale - (Owner Spent + Partner Spent)",
       },
     });
   } catch (error) {

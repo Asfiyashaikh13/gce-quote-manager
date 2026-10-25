@@ -355,6 +355,8 @@ model Expense {
   vendorId    String?
   vendor      Vendor?   @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   vendorName  String?
+  paidBy      String    @default("OWNER") // "OWNER" or "PARTNER"
+  projectName String?   @default("General / Workshop") // Tagged to specific customer/project
   paymentMode String    @default("UPI")
   hasBill     Boolean   @default(false)
   category    String?   @default("PURCHASE")
@@ -366,6 +368,8 @@ model Expense {
 
   @@index([date])
   @@index([vendorId])
+  @@index([paidBy])
+  @@index([projectName])
   @@index([category])
   @@index([deletedAt])
 }

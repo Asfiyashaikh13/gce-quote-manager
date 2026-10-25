@@ -21,6 +21,8 @@ export async function GET() {
       vendorId: e.vendorId || null,
       vendorName: e.vendorName || e.vendor?.name || "Direct Purchase",
       vendorMobile: e.vendor?.mobile || "",
+      paidBy: e.paidBy || "OWNER",
+      projectName: e.projectName || "General / Workshop",
       paymentMode: e.paymentMode || "UPI",
       hasBill: e.hasBill,
       category: e.category || "PURCHASE",
@@ -30,18 +32,26 @@ export async function GET() {
     }));
 
     const totalAmount = serialized.reduce((sum, e) => sum + e.amount, 0);
+    const ownerPaid = serialized.filter((e) => e.paidBy === "OWNER").reduce((sum, e) => sum + e.amount, 0);
+    const partnerPaid = serialized.filter((e) => e.paidBy === "PARTNER").reduce((sum, e) => sum + e.amount, 0);
     const purchaseAmount = serialized.filter((e) => e.category === "PURCHASE").reduce((sum, e) => sum + e.amount, 0);
     const siteExpenseAmount = serialized.filter((e) => e.category !== "PURCHASE").reduce((sum, e) => sum + e.amount, 0);
     const cashTotal = serialized.filter((e) => e.paymentMode === "CASH").reduce((sum, e) => sum + e.amount, 0);
     const upiTotal = serialized.filter((e) => e.paymentMode === "UPI").reduce((sum, e) => sum + e.amount, 0);
     const billedCount = serialized.filter((e) => e.hasBill).length;
 
+    // Distinct project list for dropdown filter
+    const projects = Array.from(new Set(serialized.map((e) => e.projectName).filter(Boolean)));
+
     return NextResponse.json({
       success: true,
       expenses: serialized,
+      projects,
       summary: {
         totalRecords: serialized.length,
         totalAmount,
+        ownerPaid,
+        partnerPaid,
         purchaseAmount,
         siteExpenseAmount,
         cashTotal,
@@ -59,7 +69,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { id, date, item, amount, vendorId, vendorName, paymentMode, hasBill, category, status, notes } = body;
+    const { id, date, item, amount, vendorId, vendorName, paidBy, projectName, paymentMode, hasBill, category, status, notes } = body;
 
     if (!item || typeof item !== "string" || !item.trim()) {
       return NextResponse.json({ success: false, error: "Item description is required" }, { status: 400 });
@@ -74,6 +84,8 @@ export async function POST(request: Request) {
       date: isNaN(parsedDate.getTime()) ? new Date() : parsedDate,
       vendorId: vendorId || null,
       vendorName: vendorName?.trim() || null,
+      paidBy: paidBy === "PARTNER" ? "PARTNER" : "OWNER",
+      projectName: projectName?.trim() || "General / Workshop",
       paymentMode: paymentMode || "UPI",
       hasBill: Boolean(hasBill),
       category: category || "PURCHASE",

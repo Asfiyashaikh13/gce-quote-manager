@@ -13,6 +13,8 @@ interface ExpenseItem {
   vendorId: string | null;
   vendorName: string;
   vendorMobile: string;
+  paidBy: "OWNER" | "PARTNER";
+  projectName: string;
   paymentMode: string;
   hasBill: boolean;
   category: string;
@@ -23,6 +25,8 @@ interface ExpenseItem {
 interface Summary {
   totalRecords: number;
   totalAmount: number;
+  ownerPaid: number;
+  partnerPaid: number;
   purchaseAmount: number;
   siteExpenseAmount: number;
   cashTotal: number;
@@ -34,8 +38,13 @@ interface Summary {
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [projectList, setProjectList] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Filters
   const [search, setSearch] = useState("");
+  const [payerFilter, setPayerFilter] = useState("ALL");
+  const [projectFilter, setProjectFilter] = useState("ALL");
   const [modeFilter, setModeFilter] = useState("ALL");
   const [billFilter, setBillFilter] = useState("ALL");
 
@@ -46,6 +55,8 @@ export default function ExpensesPage() {
   const [formItem, setFormItem] = useState("");
   const [formAmount, setFormAmount] = useState("");
   const [formVendor, setFormVendor] = useState("");
+  const [formPaidBy, setFormPaidBy] = useState<"OWNER" | "PARTNER">("OWNER");
+  const [formProject, setFormProject] = useState("Ravi Sir - Bhartiya City");
   const [formMode, setFormMode] = useState("UPI");
   const [formHasBill, setFormHasBill] = useState(true);
   const [formCategory, setFormCategory] = useState("PURCHASE");
@@ -60,6 +71,7 @@ export default function ExpensesPage() {
       if (data.success) {
         setExpenses(data.expenses);
         setSummary(data.summary);
+        if (data.projects) setProjectList(data.projects);
       }
     } catch (err) {
       console.error("Failed to load expenses:", err);
@@ -78,6 +90,7 @@ export default function ExpensesPage() {
         if (data.success) {
           setExpenses(data.expenses);
           setSummary(data.summary);
+          if (data.projects) setProjectList(data.projects);
         }
       } catch (err) {
         console.error("Failed to load expenses:", err);
@@ -97,6 +110,8 @@ export default function ExpensesPage() {
     setFormItem("");
     setFormAmount("");
     setFormVendor("");
+    setFormPaidBy("OWNER");
+    setFormProject(projectList[0] || "General / Workshop");
     setFormMode("UPI");
     setFormHasBill(true);
     setFormCategory("PURCHASE");
@@ -111,6 +126,8 @@ export default function ExpensesPage() {
     setFormItem(e.item);
     setFormAmount(e.amount.toString());
     setFormVendor(e.vendorName);
+    setFormPaidBy(e.paidBy || "OWNER");
+    setFormProject(e.projectName || "General / Workshop");
     setFormMode(e.paymentMode);
     setFormHasBill(e.hasBill);
     setFormCategory(e.category);
@@ -131,6 +148,8 @@ export default function ExpensesPage() {
         item: formItem.trim(),
         amount: parseFloat(formAmount) || 0,
         vendorName: formVendor.trim(),
+        paidBy: formPaidBy,
+        projectName: formProject.trim(),
         paymentMode: formMode,
         hasBill: formHasBill,
         category: formCategory,
@@ -158,13 +177,19 @@ export default function ExpensesPage() {
   const filtered = expenses.filter((e) => {
     const matchesSearch =
       e.item.toLowerCase().includes(search.toLowerCase()) ||
-      e.vendorName.toLowerCase().includes(search.toLowerCase());
+      e.vendorName.toLowerCase().includes(search.toLowerCase()) ||
+      (e.projectName && e.projectName.toLowerCase().includes(search.toLowerCase()));
+    const matchesPayer =
+      payerFilter === "ALL" || e.paidBy === payerFilter;
+    const matchesProject =
+      projectFilter === "ALL" || e.projectName === projectFilter;
     const matchesMode = modeFilter === "ALL" || e.paymentMode === modeFilter;
     const matchesBill =
       billFilter === "ALL" ||
       (billFilter === "YES" && e.hasBill) ||
       (billFilter === "NO" && !e.hasBill);
-    return matchesSearch && matchesMode && matchesBill;
+
+    return matchesSearch && matchesPayer && matchesProject && matchesMode && matchesBill;
   });
 
   return (
@@ -185,7 +210,7 @@ export default function ExpensesPage() {
               </h1>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Material purchases, site conveyance, hardware expenses, Cash/UPI records, and GST Bill verification
+              Shared Project Purchases &bull; Real-time tracking of what Owner vs Partner paid out-of-pocket
             </p>
           </div>
 
@@ -200,57 +225,65 @@ export default function ExpensesPage() {
               onClick={openAddModal}
               className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer"
             >
-              <span>+ Add Purchase / Expense</span>
+              <span>+ Record New Expense</span>
             </button>
           </div>
         </div>
 
-        {/* 4 Summary Metric Cards */}
+        {/* 4 Summary Metric Cards (Zero Confusion between Owner & Partner) */}
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
             <div>
               <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                Total Expenses &amp; Purchases
+                Total Project Spend
               </p>
               <p className="text-2xl font-black text-slate-900 mt-1">
                 {summary ? formatIndianCurrency(summary.totalAmount) : "₹0.00"}
               </p>
+              <p className="text-[10px] text-slate-400 mt-0.5">Raw materials &amp; site costs</p>
             </div>
             <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-lg">
               🛒
             </div>
           </div>
 
-          <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+          <div className="p-4 bg-blue-50/60 rounded-xl border border-blue-200 shadow-xs flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                Raw Material Purchases
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                <p className="text-[11px] font-bold text-blue-900 uppercase tracking-wider">
+                  Paid by Owner (You)
+                </p>
+              </div>
+              <p className="text-2xl font-black text-blue-900 mt-1 font-mono">
+                {summary ? formatIndianCurrency(summary.ownerPaid) : "₹0.00"}
               </p>
-              <p className="text-2xl font-black text-slate-900 mt-1">
-                {summary ? formatIndianCurrency(summary.purchaseAmount) : "₹0.00"}
-              </p>
+              <span className="inline-block px-1.5 py-0.2 bg-blue-100 text-blue-800 text-[10px] rounded font-bold mt-1">
+                Owner Reimbursable
+              </span>
             </div>
-            <div className="w-10 h-10 rounded-full bg-sky-50 text-sky-600 flex items-center justify-center font-bold text-lg">
-              🏗️
+            <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-lg">
+              👤
             </div>
           </div>
 
-          <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+          <div className="p-4 bg-teal-50/60 rounded-xl border border-teal-200 shadow-xs flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                Cash vs UPI Split
-              </p>
-              <div className="flex items-center gap-2 mt-1.5 font-mono text-xs font-bold">
-                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 rounded border border-emerald-200">
-                  UPI: {summary ? formatIndianCurrency(summary.upiTotal) : "0"}
-                </span>
-                <span className="px-2 py-0.5 bg-slate-100 text-slate-800 rounded border border-slate-300">
-                  Cash: {summary ? formatIndianCurrency(summary.cashTotal) : "0"}
-                </span>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-teal-600"></span>
+                <p className="text-[11px] font-bold text-teal-900 uppercase tracking-wider">
+                  Paid by Partner
+                </p>
               </div>
+              <p className="text-2xl font-black text-teal-900 mt-1 font-mono">
+                {summary ? formatIndianCurrency(summary.partnerPaid) : "₹0.00"}
+              </p>
+              <span className="inline-block px-1.5 py-0.2 bg-teal-100 text-teal-800 text-[10px] rounded font-bold mt-1">
+                Partner Reimbursable
+              </span>
             </div>
-            <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg">
-              💳
+            <div className="w-10 h-10 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-lg">
+              🤝
             </div>
           </div>
 
@@ -264,9 +297,12 @@ export default function ExpensesPage() {
                   {summary?.billedCount || 0} Tax Invoice
                 </span>
                 <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">
-                  {summary?.unbilledCount || 0} Slip / Voucher
+                  {summary?.unbilledCount || 0} Slip
                 </span>
               </div>
+              <p className="text-[10px] text-slate-400 mt-1 font-mono">
+                UPI: {summary ? formatIndianCurrency(summary.upiTotal) : "0"} &bull; Cash: {summary ? formatIndianCurrency(summary.cashTotal) : "0"}
+              </p>
             </div>
             <div className="w-10 h-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-lg">
               📑
@@ -274,20 +310,53 @@ export default function ExpensesPage() {
           </div>
         </div>
 
-        {/* Filters & Search */}
+        {/* Filters & Search Toolbar */}
         <div className="p-3 bg-white rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs shadow-xs">
-          <div className="flex items-center gap-2 flex-1 max-w-md">
+          <div className="flex items-center gap-2 flex-1 min-w-[240px]">
             <span className="text-slate-400">🔍</span>
             <input
               type="text"
-              placeholder="Search item, material, or vendor name..."
+              placeholder="Search item, vendor, or project name..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-transparent border-none focus:outline-none text-slate-800 placeholder-slate-400 font-medium"
             />
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Filter by Paid By */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-500 font-semibold">Payer:</span>
+              <select
+                value={payerFilter}
+                onChange={(e) => setPayerFilter(e.target.value)}
+                className="px-2 py-1 border border-slate-300 rounded bg-slate-50 font-semibold text-slate-700 focus:outline-none"
+              >
+                <option value="ALL">All Payers</option>
+                <option value="OWNER">👤 Owner Only</option>
+                <option value="PARTNER">🤝 Partner Only</option>
+              </select>
+            </div>
+
+            {/* Filter by Project */}
+            {projectList.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500 font-semibold">Project:</span>
+                <select
+                  value={projectFilter}
+                  onChange={(e) => setProjectFilter(e.target.value)}
+                  className="px-2 py-1 border border-slate-300 rounded bg-slate-50 font-semibold text-slate-700 focus:outline-none max-w-[170px] truncate"
+                >
+                  <option value="ALL">All Projects</option>
+                  {projectList.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="flex items-center gap-1.5">
               <span className="text-slate-500 font-semibold">Mode:</span>
               <select
@@ -310,8 +379,8 @@ export default function ExpensesPage() {
                 className="px-2 py-1 border border-slate-300 rounded bg-slate-50 font-semibold text-slate-700 focus:outline-none"
               >
                 <option value="ALL">All Records</option>
-                <option value="YES">Tax Invoice (With GST)</option>
-                <option value="NO">Voucher / Slip</option>
+                <option value="YES">Tax Invoice</option>
+                <option value="NO">Slip / Voucher</option>
               </select>
             </div>
           </div>
@@ -324,12 +393,13 @@ export default function ExpensesPage() {
               <thead>
                 <tr className="bg-slate-100 text-slate-700 border-b border-slate-200 font-bold uppercase tracking-wider text-[11px]">
                   <th className="py-3 px-4">Date</th>
+                  <th className="py-3 px-4">Paid By (Who Paid)</th>
+                  <th className="py-3 px-4">Project / Client</th>
                   <th className="py-3 px-4">Item / Description</th>
                   <th className="py-3 px-4 text-right">Amount</th>
                   <th className="py-3 px-4">Vendor</th>
                   <th className="py-3 px-4 text-center">Cash / UPI</th>
                   <th className="py-3 px-4 text-center">Tax Invoice?</th>
-                  <th className="py-3 px-4 text-center">Status</th>
                   <th className="py-3 px-4">Notes</th>
                   <th className="py-3 px-4 text-right">Action</th>
                 </tr>
@@ -337,14 +407,14 @@ export default function ExpensesPage() {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={9} className="text-center py-10 text-slate-400 font-medium">
+                    <td colSpan={10} className="text-center py-10 text-slate-400 font-medium">
                       Loading purchases &amp; expenses...
                     </td>
                   </tr>
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="text-center py-10 text-slate-400">
-                      No expenses found.
+                    <td colSpan={10} className="text-center py-10 text-slate-400">
+                      No expenses found matching the selected filters.
                     </td>
                   </tr>
                 ) : (
@@ -352,6 +422,24 @@ export default function ExpensesPage() {
                     <tr key={e.id} className="hover:bg-slate-50 transition">
                       <td className="py-3 px-4 font-mono font-medium text-slate-600">
                         {e.date}
+                      </td>
+                      <td className="py-3 px-4">
+                        {e.paidBy === "PARTNER" ? (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-teal-100 text-teal-800 border border-teal-300 inline-flex items-center gap-1">
+                            <span>🤝</span>
+                            <span>Partner Paid</span>
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-300 inline-flex items-center gap-1">
+                            <span>👤</span>
+                            <span>Owner Paid</span>
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 font-semibold text-slate-800">
+                        <span className="px-2 py-0.5 bg-slate-100 rounded text-[11px] border border-slate-200">
+                          {e.projectName || "General"}
+                        </span>
                       </td>
                       <td className="py-3 px-4 font-bold text-slate-900">
                         {e.item}
@@ -376,28 +464,11 @@ export default function ExpensesPage() {
                       <td className="py-3 px-4 text-center">
                         {e.hasBill ? (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                            ✓ Yes Bill
+                            ✓ Tax Invoice
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                            ✗ No Bill
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        {e.status === "PENDING" && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 border border-red-300">
-                            Pending
-                          </span>
-                        )}
-                        {e.status === "FOLLOW_UP" && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                            Follow Up
-                          </span>
-                        )}
-                        {e.status === "RECEIVED" && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-300">
-                            Received
+                            ✗ Voucher
                           </span>
                         )}
                       </td>
@@ -421,23 +492,84 @@ export default function ExpensesPage() {
         </div>
       </main>
 
-      {/* Add / Edit Expense Modal */}
+      {/* Add / Edit Expense Modal (Clear Paid By & Project selection) */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="font-black text-slate-900 text-lg">
-                {editingId ? "Edit Expense Entry" : "Record Purchase / Expense"}
+                {editingId ? "Edit Expense Entry" : "Record Project Expense / Purchase"}
               </h3>
               <button
                 onClick={() => setModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold"
+                className="text-slate-400 hover:text-slate-600 font-bold cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="space-y-3 text-xs">
+            <form onSubmit={handleSave} className="space-y-3.5 text-xs">
+              {/* WHO PAID - BIG OBVIOUS BUTTONS */}
+              <div>
+                <label className="block font-bold text-slate-800 mb-1.5">
+                  Who paid out-of-pocket for this purchase? *
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormPaidBy("OWNER")}
+                    className={`py-2 px-3 rounded-xl border-2 font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
+                      formPaidBy === "OWNER"
+                        ? "border-blue-600 bg-blue-50 text-blue-900 shadow-xs"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span className="text-base">👤</span>
+                    <span>Owner Paid</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormPaidBy("PARTNER")}
+                    className={`py-2 px-3 rounded-xl border-2 font-bold flex items-center justify-center gap-2 transition cursor-pointer ${
+                      formPaidBy === "PARTNER"
+                        ? "border-teal-600 bg-teal-50 text-teal-900 shadow-xs"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span className="text-base">🤝</span>
+                    <span>Partner Paid</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* PROJECT LINKAGE */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Project / Site / Client *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formProject}
+                  onChange={(e) => setFormProject(e.target.value)}
+                  placeholder="e.g. Ravi Sir - Bhartiya City, Mr. Fayaz - Flat 27, General Workshop"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                  list="project-suggestions"
+                />
+                <datalist id="project-suggestions">
+                  <option value="Ravi Sir - Bhartiya City" />
+                  <option value="Mr. Fayaz - Flat 27" />
+                  <option value="General / Workshop Stock" />
+                  {projectList.map((p) => (
+                    <option key={p} value={p} />
+                  ))}
+                </datalist>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Tagging the expense to the exact site ensures both partners see it on the same project!
+                </p>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Date *</label>
@@ -479,7 +611,7 @@ export default function ExpensesPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Vendor / Paid To</label>
+                  <label className="block font-bold text-slate-700 mb-1">Vendor / Supplier</label>
                   <input
                     type="text"
                     value={formVendor}
@@ -511,7 +643,7 @@ export default function ExpensesPage() {
                     onChange={(e) => setFormMode(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white font-semibold focus:outline-none"
                   >
-                    <option value="UPI">UPI (9945988552@upi)</option>
+                    <option value="UPI">UPI</option>
                     <option value="CASH">CASH</option>
                     <option value="BANK_TRANSFER">Bank Transfer (SBI)</option>
                     <option value="CHEQUE">Cheque</option>
@@ -534,7 +666,7 @@ export default function ExpensesPage() {
                         checked={formHasBill === false}
                         onChange={() => setFormHasBill(false)}
                       />
-                      <span>No (Slip / Voucher)</span>
+                      <span>No (Slip)</span>
                     </label>
                   </div>
                 </div>
@@ -546,7 +678,7 @@ export default function ExpensesPage() {
                   rows={2}
                   value={formNotes}
                   onChange={(e) => setFormNotes(e.target.value)}
-                  placeholder="e.g. Paid via UPI reference #VG-942 for Ravi Sir Bhartiya City project"
+                  placeholder="e.g. Paid via UPI reference #VG-942 for living room partition"
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none"
                 />
               </div>
