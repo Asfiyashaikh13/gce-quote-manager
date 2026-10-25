@@ -17,9 +17,11 @@ async function MasterSheetData() {
     rows = dbRows.map((r) => ({
       id: r.id,
       rowOrder: r.rowOrder,
+      date: "07/09/2026",
       clientName: r.clientName,
       flat: r.flat || "",
       building: r.building || "",
+      category: "",
       state: r.state || "Karnataka",
       factory: r.factory || "Veera Glass",
       status: r.status || "Draft",

@@ -3,9 +3,11 @@ import { Decimal } from "decimal.js";
 export interface MasterSheetRowData {
   id: string;
   rowOrder: number;
+  date?: string;
   clientName: string;
   flat: string;
   building: string;
+  category?: string;
   state: string;
   factory: string;
   status: string;

@@ -5,7 +5,7 @@ import Link from "next/link";
 import * as XLSX from "xlsx";
 import { MasterSheetRowData } from "@/lib/sheet/types";
 import { groupRowsByCustomer, GroupedCustomerQuote } from "@/lib/sheet/grouping";
-import { calculateQuoteItem, formatIndianCurrency } from "@/lib/calc";
+import { calculateQuoteItem, formatIndianCurrency, numberToIndianWords } from "@/lib/calc";
 
 interface ProductOption {
   id: string;
@@ -26,6 +26,7 @@ interface MasterSheetProps {
 }
 
 export function MasterSheet({ initialRows, products, factories }: MasterSheetProps) {
+  // Navigation tabs matching the Google Sheet tabs: _Notebook Size's @26L and _Notelist @26
   const [activeTab, setActiveTab] = useState<"sheet" | "quotes">("sheet");
   const [rows, setRows] = useState<MasterSheetRowData[]>(initialRows);
   const [history, setHistory] = useState<MasterSheetRowData[][]>([initialRows]);
@@ -41,6 +42,13 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
   const [filterFactory, setFilterFactory] = useState("ALL");
   const [filterStatus, setFilterStatus] = useState("ALL");
   const [filterState, setFilterState] = useState("ALL");
+
+  // Freight charge
+  const [freightCharge, setFreightCharge] = useState<number>(0);
+
+  // Active cell coordinate for fx bar
+  const [activeCellCoord, setActiveCellCoord] = useState("A1:D4");
+  const [activeCellValue, setActiveCellValue] = useState("GLASS CARE ENTERPRISES");
 
   // Import Modal & Toast
   const [importModalOpen, setImportModalOpen] = useState(false);
@@ -75,15 +83,17 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
     return {
       id: r.id || `new-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       rowOrder: r.rowOrder || 1,
+      date: r.date || "07/09/2026",
       clientName: r.clientName || "",
       flat: r.flat || "",
       building: r.building || "",
+      category: r.category || "",
       state: r.state || "Karnataka",
       factory: r.factory || "Veera Glass",
       status: r.status || "Draft",
       notes: r.notes || "",
       productId: r.productId || "",
-      description: r.description || "Custom Item",
+      description: r.description || "Al Shutters 565",
       frameHeightMm: r.frameHeightMm || 0,
       frameWidthMm: r.frameWidthMm || 0,
       quantity: r.quantity || 1,
@@ -185,16 +195,17 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
   // Add Row
   const handleAddRow = () => {
     const defaultProd = products[0];
-    const lastRow = rows[rows.length - 1];
-
+    const prevRow = rows[rows.length - 1];
     const newRow = recalculateRow({
-      id: `new-${Date.now()}`,
+      id: `row-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       rowOrder: rows.length + 1,
-      clientName: lastRow?.clientName || "New Client",
-      flat: lastRow?.flat || "",
-      building: lastRow?.building || "",
-      state: lastRow?.state || "Karnataka",
-      factory: lastRow?.factory || "Veera Glass",
+      date: prevRow?.date || "07/09/2026",
+      clientName: filterCustomer !== "ALL" ? filterCustomer : prevRow?.clientName || "Mr. Fayaz",
+      flat: prevRow?.flat || "27",
+      building: prevRow?.building || "Al.",
+      category: prevRow?.category || "",
+      state: prevRow?.state || "Karnataka",
+      factory: prevRow?.factory || "Veera Glass",
       status: "Draft",
       notes: "",
       productId: defaultProd?.code || "AL-SHUTTER-565",
@@ -275,14 +286,15 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
       }
 
       // Check if this matches Google Sheet "_Notebook Size's @26L" format
-      // Typically: Date [0], Flat [1], Client [2], Building [3], Category [4], Item [5], Frame H [6], Frame W [7], Round H [8], Round W [9], Qty [10] ... Rate [13] ... Factory [18]
       const hasDateAt0 = /\d{1,4}[-/.]\d{1,2}[-/.]\d{2,4}/.test(cols[0]);
       const hasDimAt6and7 = !isNaN(parseFloat(cols[6])) && !isNaN(parseFloat(cols[7]));
       const isGoogleSheetLayout = cols.length >= 10 && (hasDateAt0 || hasDimAt6and7);
 
+      let rowDate = "07/09/2026";
       let client = "Client";
       let flat = "";
       let building = "";
+      let category = "";
       let state = "Karnataka";
       let factory = "Veera Glass";
       let status = "Draft";
@@ -294,9 +306,11 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
       let notes = "";
 
       if (isGoogleSheetLayout) {
+        rowDate = cols[0] || "07/09/2026";
         flat = cols[1] || "";
         client = cols[2] || "Customer";
         building = cols[3] || "";
+        category = cols[4] || "";
         desc = cols[5] || cols[4] || "Al Shutters 565";
         height = parseFloat(cols[6]) || 1000;
         width = parseFloat(cols[7]) || 500;
@@ -330,7 +344,6 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
         desc = matchedProd.name;
         if (!rate || rate === 0) rate = matchedProd.rate;
       } else {
-        // Smart catalog heuristics matching GCE pricing
         const lowerDesc = desc.toLowerCase();
         if (rate === 430 || lowerDesc.includes("430")) {
           desc = "Al Shutters 430";
@@ -350,9 +363,11 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
       const row = recalculateRow({
         id: `row-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 4)}`,
         rowOrder: rows.length + i + 1,
+        date: rowDate,
         clientName: client,
         flat,
         building,
+        category,
         state,
         factory,
         status,
@@ -477,13 +492,42 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
     return groupRowsByCustomer(rows);
   }, [rows]);
 
+  // Active Customer metadata
+  const activeCustomer = useMemo(() => {
+    if (filterCustomer !== "ALL") return filterCustomer;
+    return filteredRows[0]?.clientName || "Mr. Fayaz";
+  }, [filterCustomer, filteredRows]);
+
+  const activeFlat = useMemo(() => {
+    return filteredRows[0]?.flat || "27.00";
+  }, [filteredRows]);
+
+  const activeBuilding = useMemo(() => {
+    return filteredRows[0]?.building || "Al.";
+  }, [filteredRows]);
+
+  const activeDate = useMemo(() => {
+    return filteredRows[0]?.date || "07/09/2026";
+  }, [filteredRows]);
+
+  // Active Quote Number
+  const activeQuoteNumber = useMemo(() => {
+    const cleanDate = (activeDate || "070926").replace(/[-/.]/g, "").slice(0, 6);
+    const cleanFlat = (activeFlat || "27").replace(/[^0-9a-zA-Z]/g, "").slice(0, 4);
+    return `QT-${cleanDate || "231026"}-${cleanFlat || "27"}`;
+  }, [activeDate, activeFlat]);
+
   // Overall totals across current visible rows
   const overallTotals = useMemo(() => {
     const net = filteredRows.reduce((acc, r) => acc + r.netAmount, 0);
     const gst = filteredRows.reduce((acc, r) => acc + r.gstAmount, 0);
-    const total = filteredRows.reduce((acc, r) => acc + r.totalAmount, 0);
-    return { net, gst, total, count: filteredRows.length };
-  }, [filteredRows]);
+    const subTotal = net + freightCharge;
+    const grandTotal = subTotal + gst;
+    const displayTotal = Math.round(grandTotal);
+    const roundOff = displayTotal - grandTotal;
+    const words = numberToIndianWords(displayTotal);
+    return { net, gst, subTotal, grandTotal, displayTotal, roundOff, words, count: filteredRows.length };
+  }, [filteredRows, freightCharge]);
 
   // Create official quote from auto-grouped customer
   const handleCreateOfficialQuote = async (g: GroupedCustomerQuote) => {
@@ -558,614 +602,888 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-800 pb-20" onPaste={handlePaste}>
-      {/* Top App Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
-        <div className="max-w-[98%] mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
-                GCE
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-lg font-bold text-slate-900 leading-tight">Master Calculation Sheet</h1>
-                  <span className="px-2 py-0.5 text-[11px] font-semibold bg-blue-50 text-blue-700 rounded-full border border-blue-200">
-                    Live
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500">Per-row client metadata • SQLite auto-save • Excel paste & fill-down</p>
-              </div>
+    <div className="min-h-screen bg-[#f8f9fa] text-slate-800 flex flex-col font-sans select-none" onPaste={handlePaste}>
+      {/* 1. Google Sheets App Header & Ribbon */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
+        <div className="px-4 py-1.5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {/* Google Sheets Green Icon */}
+            <div className="w-9 h-9 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+              <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" />
+              </svg>
             </div>
 
-            <nav className="hidden xl:flex items-center gap-1 text-xs font-semibold">
-              <span className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md">Master Sheet</span>
-              <Link href="/quotes" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition">
-                Quotes
-              </Link>
-              <Link href="/factory" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition">
-                Factory Sheet
-              </Link>
-              <Link href="/payments" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition">
-                Payments
-              </Link>
-              <Link href="/dashboard" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition">
-                Dashboard
-              </Link>
-              <Link href="/customers" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition">
-                Customers
-              </Link>
-            </nav>
+            <div>
+              {/* Document Title & Status */}
+              <div className="flex items-center gap-2">
+                <h1 className="text-base font-semibold text-slate-900 leading-none">
+                  &ldquo;GCE Meas_42&rdquo;
+                </h1>
+                <span className="text-slate-400 text-xs cursor-pointer hover:text-amber-500" title="Star document">★</span>
+                <span className="text-slate-400 text-xs" title="Save state">
+                  {saveStatus === "saving" ? "⏳ Saving..." : saveStatus === "saved" ? "☁️ ✓" : "⚠️"}
+                </span>
+                <span className="px-1.5 py-0.2 bg-slate-100 text-[10px] font-mono text-slate-500 rounded border border-slate-200">
+                  Live Sync
+                </span>
+              </div>
+
+              {/* Standard Menu Bar */}
+              <div className="flex items-center gap-2 text-xs text-slate-600 mt-1">
+                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">File</span>
+                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">Edit</span>
+                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">View</span>
+                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">Insert</span>
+                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">Format</span>
+                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">Data</span>
+                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">Tools</span>
+                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">Extensions</span>
+                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">Help</span>
+              </div>
+            </div>
           </div>
 
-          {/* Navigation Tabs & Actions */}
-          <div className="flex items-center gap-4">
-            {/* Autosave Status Badge */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium bg-slate-50 border-slate-200">
-              {saveStatus === "saving" && (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
-                  <span className="text-amber-700">Saving to SQLite...</span>
-                </>
-              )}
-              {saveStatus === "saved" && (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                  <span className="text-emerald-700">Saved {lastSavedTime ? `(${lastSavedTime})` : ""}</span>
-                </>
-              )}
-              {saveStatus === "unsaved" && (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-slate-400"></span>
-                  <span className="text-slate-600">Unsaved changes</span>
-                </>
-              )}
-              {saveStatus === "error" && (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-red-500"></span>
-                  <span className="text-red-700">Save failed</span>
-                </>
-              )}
+          {/* Right Toolbar Actions */}
+          <div className="flex items-center gap-2.5">
+            {/* Quick Customer Switcher */}
+            <div className="flex items-center gap-1.5 bg-blue-50/80 px-2 py-1 rounded-lg border border-blue-200">
+              <span className="text-[11px] font-bold text-blue-800">Customer:</span>
+              <select
+                value={filterCustomer}
+                onChange={(e) => {
+                  setFilterCustomer(e.target.value);
+                  showToast(e.target.value === "ALL" ? "Showing all customers" : `Viewing ${e.target.value}`);
+                }}
+                className="text-xs font-bold bg-white text-blue-950 border border-blue-300 rounded px-2 py-0.5 focus:outline-none cursor-pointer"
+              >
+                <option value="ALL">👤 All Customers ({customerList.length})</option>
+                {customerList.map((c) => (
+                  <option key={c} value={c}>
+                    👤 {c}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            {/* Tab Switcher */}
-            <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-50 text-xs font-semibold">
+            {/* Batch Generate Quotes */}
+            <button
+              onClick={handleBatchGenerateQuotes}
+              disabled={isGeneratingQuote}
+              className="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold rounded-lg shadow-xs transition flex items-center gap-1.5 disabled:opacity-50"
+              title="Generate official quotes for all customers in sheet"
+            >
+              <span>⚡</span>
+              <span>Batch Generate</span>
+            </button>
+
+            {/* Official PDF */}
+            <button
+              onClick={() => {
+                const targetGrp = groupedQuotes.find((g) => g.clientName === activeCustomer) || groupedQuotes[0];
+                if (targetGrp) handleCreateOfficialQuote(targetGrp);
+              }}
+              disabled={isGeneratingQuote}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-xs transition flex items-center gap-1.5 disabled:opacity-50"
+              title="Save as official quotation"
+            >
+              <span>📄</span>
+              <span>Save Quote</span>
+            </button>
+
+            {/* Share via WhatsApp */}
+            <button
+              onClick={() => {
+                const waText = encodeURIComponent(
+                  `*GLASS CARE ENTERPRISES - QUOTATION*\nCustomer: ${activeCustomer}\nFlat: ${activeFlat}\nQuote No: ${activeQuoteNumber}\nTotal Amount: ${formatIndianCurrency(overallTotals.displayTotal)}\nSub Total: ${formatIndianCurrency(overallTotals.subTotal)}\nGST 18%: ${formatIndianCurrency(overallTotals.gst)}\n\nThank you for choosing Glass Care Enterprises!`
+                );
+                window.open(`https://wa.me/?text=${waText}`, "_blank");
+              }}
+              className="px-2.5 py-1.5 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-300 rounded-lg text-xs font-bold transition flex items-center gap-1"
+            >
+              <span>💬</span>
+              <span>WhatsApp</span>
+            </button>
+
+            {/* User Avatar */}
+            <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs ml-1">
+              GCE
+            </div>
+          </div>
+        </div>
+
+        {/* 2. Secondary Ribbon: Formatting & Action Buttons */}
+        <div className="bg-[#edf2fa] px-4 py-1 border-t border-slate-200 flex flex-wrap items-center justify-between text-xs text-slate-700">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleUndo}
+              disabled={historyIndex <= 0}
+              className="px-2 py-0.5 rounded hover:bg-white text-slate-700 disabled:opacity-30 cursor-pointer"
+              title="Undo (Ctrl+Z)"
+            >
+              ↩
+            </button>
+            <button
+              onClick={handleRedo}
+              disabled={historyIndex >= history.length - 1}
+              className="px-2 py-0.5 rounded hover:bg-white text-slate-700 disabled:opacity-30 cursor-pointer"
+              title="Redo (Ctrl+Y)"
+            >
+              ↪
+            </button>
+            <span className="text-slate-300">|</span>
+
+            {/* Import Button */}
+            <button
+              onClick={() => setImportModalOpen(true)}
+              className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 rounded font-semibold transition flex items-center gap-1"
+              title="Import 100s or 1,000s of rows from Google Sheets or Excel"
+            >
+              <span>📥</span>
+              <span>Import Sheet</span>
+            </button>
+
+            {/* Fill Down Button */}
+            <button
+              onClick={handleFillDown}
+              disabled={!selectedRowId}
+              className="px-2.5 py-1 bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 rounded font-medium disabled:opacity-30 transition"
+              title="Fill Down (Ctrl+D): copy previous row"
+            >
+              ↓ Fill Down
+            </button>
+
+            {/* Add Row Button */}
+            <button
+              onClick={handleAddRow}
+              className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded font-medium transition"
+            >
+              + Add Row
+            </button>
+
+            <span className="text-slate-300">|</span>
+
+            {/* Search Box */}
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search measurement rows..."
+                className="w-52 pl-6 pr-2 py-0.5 text-xs bg-white border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              <span className="absolute left-1.5 top-1 text-slate-400 text-xs">🔍</span>
+            </div>
+
+            {/* Factory Filter */}
+            <select
+              value={filterFactory}
+              onChange={(e) => setFilterFactory(e.target.value)}
+              className="px-2 py-0.5 text-xs bg-white border border-slate-300 rounded cursor-pointer"
+            >
+              <option value="ALL">All Factories</option>
+              {factories.map((f) => (
+                <option key={f.id} value={f.name}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
+
+            {/* Status Filter */}
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="px-2 py-0.5 text-xs bg-white border border-slate-300 rounded cursor-pointer"
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="Draft">Draft</option>
+              <option value="Approved">Approved</option>
+              <option value="In production">In Production</option>
+              <option value="Delivered">Delivered</option>
+            </select>
+
+            {/* State Filter */}
+            <select
+              value={filterState}
+              onChange={(e) => setFilterState(e.target.value)}
+              className="px-2 py-0.5 text-xs bg-white border border-slate-300 rounded cursor-pointer"
+            >
+              <option value="ALL">All States</option>
+              <option value="Karnataka">Karnataka</option>
+              <option value="Tamil Nadu">Tamil Nadu</option>
+              <option value="Maharashtra">Maharashtra</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-3 text-xs">
+            <span className="text-slate-500 font-mono text-[11px]">
+              {lastSavedTime ? `Autosaved at ${lastSavedTime}` : "Auto-saving to SQLite"}
+            </span>
+            <div className="inline-flex rounded border border-slate-300 bg-white p-0.5">
               <button
                 onClick={() => setActiveTab("sheet")}
-                className={`px-3 py-1.5 rounded-md transition ${
-                  activeTab === "sheet" ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
+                className={`px-2.5 py-0.5 rounded text-xs font-semibold ${
+                  activeTab === "sheet" ? "bg-emerald-600 text-white" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                Master Sheet ({rows.length})
+                _Notebook Size&apos;s @26L
               </button>
               <button
                 onClick={() => setActiveTab("quotes")}
-                className={`px-3 py-1.5 rounded-md transition ${
-                  activeTab === "quotes" ? "bg-white text-blue-600 shadow-xs" : "text-slate-600 hover:text-slate-900"
+                className={`px-2.5 py-0.5 rounded text-xs font-semibold ${
+                  activeTab === "quotes" ? "bg-emerald-600 text-white" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                Auto-Grouped Quotes ({groupedQuotes.length})
+                _Notelist @26 ({groupedQuotes.length})
               </button>
             </div>
           </div>
         </div>
+
+        {/* 3. Formula Bar (fx) */}
+        <div className="bg-white px-4 py-1 border-t border-slate-200 flex items-center gap-2 text-xs">
+          <div className="w-16 font-mono text-center font-bold text-slate-600 border-r border-slate-200 pr-2">
+            {activeCellCoord}
+          </div>
+          <span className="font-serif italic font-bold text-slate-400 text-sm">fx</span>
+          <div className="flex-1 font-mono text-slate-700 bg-slate-50 px-2 py-0.5 rounded border border-slate-200 text-xs truncate">
+            {activeCellValue}
+          </div>
+        </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="max-w-[98%] mx-auto px-4 mt-4">
+      {/* Main Content */}
+      <main className="flex-1 p-3 overflow-x-auto">
         {activeTab === "sheet" ? (
-          <>
-            {/* Toolbar: Search, Filters, Undo/Redo, Actions */}
-            <div className="bg-white rounded-xl border border-slate-200 p-3 mb-3 shadow-xs flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-3">
-                {/* Search Bar */}
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search client, flat, building..."
-                    className="w-64 pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                  <span className="absolute left-2.5 top-2 text-slate-400 text-xs">🔍</span>
-                </div>
-
-                {/* Filters */}
-                <div className="flex items-center gap-2">
-                  <select
-                    value={filterCustomer}
-                    onChange={(e) => setFilterCustomer(e.target.value)}
-                    className="px-2.5 py-1.5 text-xs border border-blue-300 rounded-lg bg-blue-50/60 font-bold text-blue-900 focus:outline-none"
-                  >
-                    <option value="ALL">All Customers ({customerList.length})</option>
-                    {customerList.map((c) => (
-                      <option key={c} value={c}>
-                        👤 {c}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={filterFactory}
-                    onChange={(e) => setFilterFactory(e.target.value)}
-                    className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg bg-white"
-                  >
-                    <option value="ALL">All Factories</option>
-                    {factories.map((f) => (
-                      <option key={f.id} value={f.name}>
-                        {f.name}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                    className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg bg-white"
-                  >
-                    <option value="ALL">All Statuses</option>
-                    <option value="Draft">Draft</option>
-                    <option value="Sent">Sent</option>
-                    <option value="Approved">Approved</option>
-                  </select>
-
-                  <select
-                    value={filterState}
-                    onChange={(e) => setFilterState(e.target.value)}
-                    className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg bg-white"
-                  >
-                    <option value="ALL">All States</option>
-                    <option value="Karnataka">Karnataka (Intra)</option>
-                    <option value="Tamil Nadu">Tamil Nadu (Inter)</option>
-                    <option value="Maharashtra">Maharashtra (Inter)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleUndo}
-                  disabled={historyIndex <= 0}
-                  className="px-2.5 py-1 text-xs font-medium border border-slate-200 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-40 transition"
-                  title="Undo (Ctrl+Z)"
-                >
-                  ↩ Undo
-                </button>
-                <button
-                  onClick={handleRedo}
-                  disabled={historyIndex >= history.length - 1}
-                  className="px-2.5 py-1 text-xs font-medium border border-slate-200 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-40 transition"
-                  title="Redo (Ctrl+Y)"
-                >
-                  ↪ Redo
-                </button>
-                <button
-                  onClick={handleFillDown}
-                  disabled={!selectedRowId}
-                  className="px-2.5 py-1 text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-40 rounded-lg transition"
-                  title="Fill Down (Ctrl+D): Copy previous row metadata into selected row"
-                >
-                  ↓ Fill Down (Ctrl+D)
-                </button>
-                <button
-                  onClick={() => setImportModalOpen(true)}
-                  className="px-2.5 py-1 text-xs font-semibold border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 rounded-lg transition flex items-center gap-1"
-                  title="Import rows from Google Sheets or Excel"
-                >
-                  <span>📥</span>
-                  <span>Import Sheet</span>
-                </button>
-                <button
-                  onClick={handleAddRow}
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition"
-                >
-                  + Add Row
-                </button>
-              </div>
-            </div>
-
-            {/* Active Customer Quotation Header (matching Google Sheets layout) */}
-            {filterCustomer !== "ALL" && (
-              <div className="bg-white rounded-xl border border-blue-200 p-4 mb-3 shadow-xs bg-gradient-to-r from-blue-50/50 via-white to-indigo-50/40">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-xl shadow-sm">
-                      GCE
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 bg-blue-100 text-blue-800 rounded">
-                          Active Customer Quote View
-                        </span>
-                        <span className="text-xs text-slate-400 font-medium">{filteredRows.length} Line Items</span>
-                      </div>
-                      <h2 className="text-lg font-black text-slate-900 mt-0.5">{filterCustomer}</h2>
-                      <p className="text-xs text-slate-500">
-                        Site: {filteredRows[0]?.building || "Main Site"} {filteredRows[0]?.flat ? `• Flat ${filteredRows[0]?.flat}` : ""} • {filteredRows[0]?.state || "Karnataka"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center bg-white p-2 rounded-xl border border-slate-200 shadow-2xs text-xs">
-                      <div className="text-right px-3 border-r border-slate-100">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase block">Sub Total</span>
-                        <span className="font-mono text-xs font-bold text-slate-800">{formatIndianCurrency(overallTotals.net)}</span>
-                      </div>
-                      <div className="text-right px-3 border-r border-slate-100">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase block">GST 18%</span>
-                        <span className="font-mono text-xs font-bold text-slate-800">{formatIndianCurrency(overallTotals.gst)}</span>
-                      </div>
-                      <div className="text-right px-3">
-                        <span className="text-[10px] font-extrabold text-blue-600 uppercase block">Grand Total</span>
-                        <span className="font-mono text-base font-black text-blue-900">{formatIndianCurrency(overallTotals.total)}</span>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        const grp = groupedQuotes.find((g) => g.clientName === filterCustomer);
-                        if (grp) handleCreateOfficialQuote(grp);
-                      }}
-                      disabled={isGeneratingQuote}
-                      className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1.5 disabled:opacity-50"
-                    >
-                      <span>📄</span>
-                      <span>Save as Official Quote</span>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        const waText = encodeURIComponent(
-                          `*GLASS CARE ENTERPRISES - QUOTATION*\nCustomer: ${filterCustomer}\nFlat: ${filteredRows[0]?.flat || '-'}\nTotal Amount: ${formatIndianCurrency(overallTotals.total)}\nSub Total: ${formatIndianCurrency(overallTotals.net)}\nGST (18%): ${formatIndianCurrency(overallTotals.gst)}\n\nThank you for choosing Glass Care Enterprises!`
-                        );
-                        window.open(`https://wa.me/?text=${waText}`, "_blank");
-                      }}
-                      className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold border border-emerald-200 transition flex items-center gap-1"
-                    >
-                      <span>💬</span>
-                      <span>WhatsApp</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Excel-like Table View (Desktop & Tablet) */}
-            <div className="hidden md:block bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-              <div className="overflow-x-auto max-h-[70vh]">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
-                    <tr>
-                      <th className="py-2.5 px-2 text-center w-10">#</th>
-                      <th className="py-2.5 px-3 min-w-[130px]">Client</th>
-                      <th className="py-2.5 px-2 min-w-[70px]">Flat</th>
-                      <th className="py-2.5 px-2 min-w-[100px]">Building</th>
-                      <th className="py-2.5 px-2 min-w-[100px]">State</th>
-                      <th className="py-2.5 px-2 min-w-[110px]">Factory</th>
-                      <th className="py-2.5 px-2 min-w-[85px]">Status</th>
-                      <th className="py-2.5 px-3 min-w-[150px]">Product / Desc</th>
-                      <th className="py-2.5 px-2 text-right min-w-[75px]">Frame H</th>
-                      <th className="py-2.5 px-2 text-right min-w-[75px]">Frame W</th>
-                      <th className="py-2.5 px-2 text-center min-w-[90px]">Glass HxW</th>
-                      <th className="py-2.5 px-2 text-center min-w-[90px]">Round HxW</th>
-                      <th className="py-2.5 px-2 text-center w-14">Qty</th>
-                      <th className="py-2.5 px-2 text-right min-w-[65px]">Sqft</th>
-                      <th className="py-2.5 px-2 text-right min-w-[65px]">R.Ft</th>
-                      <th className="py-2.5 px-2 text-right min-w-[75px]">Rate (₹)</th>
-                      <th className="py-2.5 px-2 text-right min-w-[85px]">Net (₹)</th>
-                      <th className="py-2.5 px-2 text-right min-w-[80px]">GST (₹)</th>
-                      <th className="py-2.5 px-2 text-right min-w-[90px]">Total (₹)</th>
-                      <th className="py-2.5 px-2 min-w-[100px]">Notes</th>
-                      <th className="py-2.5 px-2 text-center w-10"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-sans">
-                    {filteredRows.map((r, idx) => {
-                      const isSelected = selectedRowId === r.id;
-                      return (
-                        <tr
-                          key={r.id}
-                          onClick={() => setSelectedRowId(r.id)}
-                          className={`transition ${isSelected ? "bg-blue-50/70 ring-1 ring-blue-300" : "hover:bg-slate-50/60"}`}
-                        >
-                          <td className="py-2 px-2 text-center text-slate-400 font-mono text-[11px]">{idx + 1}</td>
-                          <td className="py-1 px-1">
-                            <input
-                              type="text"
-                              value={r.clientName}
-                              onChange={(e) => handleCellChange(r.id, { clientName: e.target.value })}
-                              placeholder="Client name"
-                              className="w-full px-2 py-1 text-xs border border-transparent hover:border-slate-300 focus:border-blue-500 rounded bg-transparent focus:bg-white"
-                            />
-                          </td>
-                          <td className="py-1 px-1">
-                            <input
-                              type="text"
-                              value={r.flat}
-                              onChange={(e) => handleCellChange(r.id, { flat: e.target.value })}
-                              placeholder="Flat"
-                              className="w-full px-1.5 py-1 text-xs border border-transparent hover:border-slate-300 focus:border-blue-500 rounded bg-transparent focus:bg-white"
-                            />
-                          </td>
-                          <td className="py-1 px-1">
-                            <input
-                              type="text"
-                              value={r.building}
-                              onChange={(e) => handleCellChange(r.id, { building: e.target.value })}
-                              placeholder="Building"
-                              className="w-full px-1.5 py-1 text-xs border border-transparent hover:border-slate-300 focus:border-blue-500 rounded bg-transparent focus:bg-white"
-                            />
-                          </td>
-                          <td className="py-1 px-1">
-                            <select
-                              value={r.state}
-                              onChange={(e) => handleCellChange(r.id, { state: e.target.value })}
-                              className="w-full px-1.5 py-1 text-xs border border-transparent hover:border-slate-300 focus:border-blue-500 rounded bg-transparent focus:bg-white"
-                            >
-                              <option value="Karnataka">Karnataka</option>
-                              <option value="Tamil Nadu">Tamil Nadu</option>
-                              <option value="Maharashtra">Maharashtra</option>
-                              <option value="Kerala">Kerala</option>
-                            </select>
-                          </td>
-                          <td className="py-1 px-1">
-                            <select
-                              value={r.factory}
-                              onChange={(e) => handleCellChange(r.id, { factory: e.target.value })}
-                              className="w-full px-1.5 py-1 text-xs border border-transparent hover:border-slate-300 focus:border-blue-500 rounded bg-transparent focus:bg-white"
-                            >
-                              {factories.map((f) => (
-                                <option key={f.id} value={f.name}>
-                                  {f.name}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-                          <td className="py-1 px-1">
-                            <select
-                              value={r.status}
-                              onChange={(e) => handleCellChange(r.id, { status: e.target.value })}
-                              className="w-full px-1.5 py-1 text-xs border border-transparent hover:border-slate-300 focus:border-blue-500 rounded bg-transparent focus:bg-white"
-                            >
-                              <option value="Draft">Draft</option>
-                              <option value="Sent">Sent</option>
-                              <option value="Approved">Approved</option>
-                            </select>
-                          </td>
-                          <td className="py-1 px-1">
-                            <select
-                              value={r.productId || r.description}
-                              onChange={(e) => handleCellChange(r.id, { productId: e.target.value })}
-                              className="w-full px-2 py-1 text-xs border border-transparent hover:border-slate-300 focus:border-blue-500 rounded bg-transparent focus:bg-white font-medium"
-                            >
-                              {products.map((p) => (
-                                <option key={p.id} value={p.code || p.id}>
-                                  {p.name}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-                          <td className="py-1 px-1">
-                            <input
-                              type="number"
-                              value={r.frameHeightMm || ""}
-                              onChange={(e) => handleCellChange(r.id, { frameHeightMm: parseFloat(e.target.value) || 0 })}
-                              className="w-full px-1 py-1 text-xs text-right font-mono border border-transparent hover:border-slate-300 focus:border-blue-500 rounded bg-transparent focus:bg-white"
-                            />
-                          </td>
-                          <td className="py-1 px-1">
-                            <input
-                              type="number"
-                              value={r.frameWidthMm || ""}
-                              onChange={(e) => handleCellChange(r.id, { frameWidthMm: parseFloat(e.target.value) || 0 })}
-                              className="w-full px-1 py-1 text-xs text-right font-mono border border-transparent hover:border-slate-300 focus:border-blue-500 rounded bg-transparent focus:bg-white"
-                            />
-                          </td>
-                          <td className="py-2 px-2 text-center font-mono text-[11px] text-slate-500">
-                            {r.glassCutHeightMm}×{r.glassCutWidthMm}
-                          </td>
-                          <td className="py-2 px-2 text-center font-mono text-[11px] text-slate-500">
-                            {r.roundedHeightMm}×{r.roundedWidthMm}
-                          </td>
-                          <td className="py-1 px-1">
-                            <input
-                              type="number"
-                              min="1"
-                              value={r.quantity || 1}
-                              onChange={(e) => handleCellChange(r.id, { quantity: parseInt(e.target.value, 10) || 1 })}
-                              className="w-full px-1 py-1 text-xs text-center font-mono border border-transparent hover:border-slate-300 focus:border-blue-500 rounded bg-transparent focus:bg-white"
-                            />
-                          </td>
-                          <td className="py-2 px-2 text-right font-mono font-medium text-slate-700">
-                            {r.sqft.toFixed(3)}
-                          </td>
-                          <td className="py-2 px-2 text-right font-mono text-slate-500">
-                            {r.runningFeet.toFixed(2)}
-                          </td>
-                          <td className="py-1 px-1">
-                            <input
-                              type="number"
-                              value={r.rate || ""}
-                              onChange={(e) => handleCellChange(r.id, { rate: parseFloat(e.target.value) || 0 })}
-                              className="w-full px-1 py-1 text-xs text-right font-mono border border-transparent hover:border-slate-300 focus:border-blue-500 rounded bg-transparent focus:bg-white"
-                            />
-                          </td>
-                          <td className="py-2 px-2 text-right font-mono font-semibold text-slate-900">
-                            {formatIndianCurrency(r.netAmount)}
-                          </td>
-                          <td className="py-2 px-2 text-right font-mono text-slate-600">
-                            {formatIndianCurrency(r.gstAmount)}
-                          </td>
-                          <td className="py-2 px-2 text-right font-mono font-bold text-slate-900">
-                            {formatIndianCurrency(r.totalAmount)}
-                          </td>
-                          <td className="py-1 px-1">
-                            <input
-                              type="text"
-                              value={r.notes}
-                              onChange={(e) => handleCellChange(r.id, { notes: e.target.value })}
-                              placeholder="Notes"
-                              className="w-full px-1.5 py-1 text-xs border border-transparent hover:border-slate-300 focus:border-blue-500 rounded bg-transparent focus:bg-white text-slate-500"
-                            />
-                          </td>
-                          <td className="py-1 px-1 text-center">
-                            <button
-                              onClick={() => handleDeleteRow(r.id)}
-                              disabled={rows.length <= 1}
-                              title="Delete row"
-                              className="text-slate-300 hover:text-red-500 disabled:opacity-20 px-1 py-0.5 rounded transition"
-                            >
-                              ✕
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  {/* Table Footer Totals */}
-                  <tfoot className="bg-slate-50 font-bold border-t-2 border-slate-200">
-                    <tr>
-                      <td colSpan={13} className="py-3 px-4 text-xs text-slate-600">
-                        Total {filteredRows.length} Rows • Tip: Paste copied cells from Excel / Google Sheets directly!
-                      </td>
-                      <td colSpan={3} className="py-3 px-2 text-right text-xs text-slate-500">
-                        Grand Totals:
-                      </td>
-                      <td className="py-3 px-2 text-right font-mono text-xs text-slate-900">
-                        {formatIndianCurrency(overallTotals.net)}
-                      </td>
-                      <td className="py-3 px-2 text-right font-mono text-xs text-slate-700">
-                        {formatIndianCurrency(overallTotals.gst)}
-                      </td>
-                      <td className="py-3 px-2 text-right font-mono text-sm text-blue-700">
-                        {formatIndianCurrency(overallTotals.total)}
-                      </td>
-                      <td colSpan={2}></td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </div>
-
-            {/* Mobile Card-per-Row Editor (Phones < 768px) */}
-            <div className="md:hidden space-y-4">
-              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex justify-between items-center text-xs">
-                <span className="font-bold text-slate-700">Total {filteredRows.length} Rows</span>
-                <span className="font-mono font-bold text-blue-700">{formatIndianCurrency(overallTotals.total)}</span>
-              </div>
-
-              {filteredRows.map((r, idx) => (
+          <div className="bg-white rounded-lg border border-slate-300 shadow-sm inline-block min-w-full">
+            {/* ============================================================== */}
+            {/* EXACT GOOGLE SHEET QUOTE HEADER (Rows 1 to 6)                  */}
+            {/* ============================================================== */}
+            <div className="p-3 border-b-2 border-slate-300 bg-[#fdfdfd]">
+              <div className="grid grid-cols-12 gap-3 items-stretch">
+                {/* 1. GCE LOGO (A1:D5) */}
                 <div
-                  key={r.id}
-                  className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs space-y-3"
+                  className="col-span-12 lg:col-span-3 border-2 border-blue-400 rounded-lg p-3 bg-white flex items-center justify-center gap-3 shadow-2xs cursor-pointer hover:border-blue-500"
+                  onClick={() => {
+                    setActiveCellCoord("A1:D4");
+                    setActiveCellValue("GLASS CARE ENTERPRISES - FRAME YOUR VISION");
+                  }}
                 >
-                  <div className="flex items-center justify-between border-b pb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-800 font-bold text-xs flex items-center justify-center">
-                        {idx + 1}
-                      </span>
-                      <span className="font-bold text-slate-900 text-sm">{r.clientName || "Unnamed Client"}</span>
-                    </div>
-                    <button
-                      onClick={() => handleDeleteRow(r.id)}
-                      className="text-red-500 hover:text-red-700 text-xs font-semibold px-2 py-0.5"
-                    >
-                      Delete
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <label className="text-[10px] uppercase font-bold text-slate-400 block">Flat / Unit</label>
-                      <input
-                        type="text"
-                        value={r.flat}
-                        onChange={(e) => handleCellChange(r.id, { flat: e.target.value })}
-                        placeholder="e.g. 27"
-                        className="w-full px-2 py-1 border border-slate-200 rounded mt-0.5"
-                      />
+                  <div className="flex items-center gap-2">
+                    {/* Stylized colored bars matching user logo */}
+                    <div className="flex h-12 w-2.5 gap-0.5">
+                      <span className="w-1 h-full bg-amber-500 rounded-xs"></span>
+                      <span className="w-1 h-full bg-red-500 rounded-xs"></span>
+                      <span className="w-1 h-full bg-blue-600 rounded-xs"></span>
                     </div>
                     <div>
-                      <label className="text-[10px] uppercase font-bold text-slate-400 block">Building</label>
-                      <input
-                        type="text"
-                        value={r.building}
-                        onChange={(e) => handleCellChange(r.id, { building: e.target.value })}
-                        placeholder="e.g. Tower B"
-                        className="w-full px-2 py-1 border border-slate-200 rounded mt-0.5"
-                      />
+                      <div className="text-xl font-black text-blue-900 tracking-wider leading-none">
+                        GC
+                      </div>
+                      <div className="text-[11px] font-bold text-blue-800 tracking-wider uppercase">
+                        ENTERPRISES
+                      </div>
+                      <div className="text-[9px] font-black text-orange-600 tracking-widest uppercase mt-0.5">
+                        FRAME YOUR VISION
+                      </div>
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 block">Item / Glass Type</label>
-                    <input
-                      type="text"
-                      value={r.description}
-                      onChange={(e) => handleCellChange(r.id, { description: e.target.value })}
-                      className="w-full px-2 py-1 border border-slate-200 rounded mt-0.5"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-2 text-xs">
-                    <div>
-                      <label className="text-[10px] uppercase font-bold text-slate-400 block">Frame H</label>
-                      <input
-                        type="number"
-                        value={r.frameHeightMm || ""}
-                        onChange={(e) => handleCellChange(r.id, { frameHeightMm: parseFloat(e.target.value) || 0 })}
-                        className="w-full px-2 py-1 border border-slate-200 rounded mt-0.5 font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] uppercase font-bold text-slate-400 block">Frame W</label>
-                      <input
-                        type="number"
-                        value={r.frameWidthMm || ""}
-                        onChange={(e) => handleCellChange(r.id, { frameWidthMm: parseFloat(e.target.value) || 0 })}
-                        className="w-full px-2 py-1 border border-slate-200 rounded mt-0.5 font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] uppercase font-bold text-slate-400 block">Qty</label>
-                      <input
-                        type="number"
-                        value={r.quantity || ""}
-                        onChange={(e) => handleCellChange(r.id, { quantity: parseInt(e.target.value, 10) || 1 })}
-                        className="w-full px-2 py-1 border border-slate-200 rounded mt-0.5 font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] uppercase font-bold text-slate-400 block">Rate (₹)</label>
-                      <input
-                        type="number"
-                        value={r.rate || ""}
-                        onChange={(e) => handleCellChange(r.id, { rate: parseFloat(e.target.value) || 0 })}
-                        className="w-full px-2 py-1 border border-slate-200 rounded mt-0.5 font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Computed Chips */}
-                  <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t text-[11px]">
-                    <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded font-mono">
-                      Cut: {r.glassCutHeightMm}×{r.glassCutWidthMm}
-                    </span>
-                    <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded font-mono">
-                      {r.sqft.toFixed(2)} sqft
-                    </span>
-                    <span className="ml-auto font-mono font-bold text-slate-900 text-sm">
-                      {formatIndianCurrency(r.totalAmount)}
-                    </span>
                   </div>
                 </div>
-              ))}
+
+                {/* 2. COMPANY ADDRESS (E1:H5) */}
+                <div
+                  className="col-span-12 lg:col-span-3 border border-slate-300 rounded-lg p-3 bg-white flex flex-col justify-center text-center cursor-pointer hover:bg-slate-50"
+                  onClick={() => {
+                    setActiveCellCoord("E1:H4");
+                    setActiveCellValue("GLASS CARE ENTERPRISES, Near Nagwara, Manyata Tech Park, Contact: 7411415842");
+                  }}
+                >
+                  <h2 className="text-sm font-black tracking-wide text-slate-900">
+                    GLASS CARE ENTERPRISES
+                  </h2>
+                  <p className="text-xs text-slate-600 font-medium">Near Nagwara, Manyata Tech Park</p>
+                  <p className="text-xs text-slate-700 font-bold mt-0.5">Contact: 7411415842</p>
+                </div>
+
+                {/* 3. TOTALS BLOCK (J2:M5) */}
+                <div
+                  className="col-span-12 sm:col-span-4 lg:col-span-2 border border-slate-300 rounded-lg overflow-hidden bg-white text-xs cursor-pointer hover:border-blue-400"
+                  onClick={() => {
+                    setActiveCellCoord("J2:M4");
+                    setActiveCellValue(`Sub Total: ${overallTotals.subTotal.toFixed(2)}, GST: ${overallTotals.gst.toFixed(2)}, Grand Total: ${overallTotals.grandTotal.toFixed(2)}`);
+                  }}
+                >
+                  <div className="grid grid-cols-2 divide-x divide-y divide-slate-200">
+                    <div className="p-1.5 bg-[#f8fafc] font-bold text-slate-600 text-[11px]">Sub Total</div>
+                    <div className="p-1.5 text-right font-mono font-bold text-slate-800 text-[11px]">
+                      {overallTotals.subTotal.toFixed(2)}
+                    </div>
+                    <div className="p-1.5 bg-[#f8fafc] font-bold text-slate-600 text-[11px]">GST 18%</div>
+                    <div className="p-1.5 text-right font-mono font-bold text-slate-800 text-[11px]">
+                      {overallTotals.gst.toFixed(2)}
+                    </div>
+                    <div className="p-1.5 bg-blue-50 font-black text-blue-900 text-[11px]">Grand Total</div>
+                    <div className="p-1.5 text-right font-mono font-black text-blue-900 text-xs bg-blue-50/60">
+                      {overallTotals.grandTotal.toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. CUSTOMER BLOCK (N2:P5) */}
+                <div
+                  className="col-span-12 sm:col-span-4 lg:col-span-2 border border-slate-300 rounded-lg overflow-hidden bg-white text-xs cursor-pointer hover:border-blue-400"
+                  onClick={() => {
+                    setActiveCellCoord("N2:P4");
+                    setActiveCellValue(`FLAT: ${activeFlat}, CUSTOMER: ${activeCustomer}, PROJECT: ${activeBuilding}`);
+                  }}
+                >
+                  <div className="grid grid-cols-2 divide-x divide-y divide-slate-200">
+                    <div className="p-1.5 bg-[#f8fafc] font-bold text-slate-600 text-[10px] uppercase">FLAT/HOUSE NO</div>
+                    <div className="p-1.5 font-mono font-bold text-slate-900 text-[11px] truncate">
+                      {activeFlat}
+                    </div>
+                    <div className="p-1.5 bg-[#f8fafc] font-bold text-slate-600 text-[10px] uppercase">CUSTOMER NAME</div>
+                    <div className="p-1.5 font-bold text-blue-950 text-[11px] truncate" title={activeCustomer}>
+                      {activeCustomer}
+                    </div>
+                    <div className="p-1.5 bg-[#f8fafc] font-bold text-slate-600 text-[10px] uppercase">PROJECT</div>
+                    <div className="p-1.5 font-semibold text-slate-800 text-[11px] truncate">
+                      {activeBuilding || "All"}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. QUOTATION METADATA (R1:T5) */}
+                <div
+                  className="col-span-12 sm:col-span-4 lg:col-span-2 border border-slate-300 rounded-lg overflow-hidden bg-white text-xs cursor-pointer hover:border-blue-400"
+                  onClick={() => {
+                    setActiveCellCoord("R1:T4");
+                    setActiveCellValue(`QUOTE ${activeQuoteNumber} DATE: ${activeDate} VALID: 07/11/2026`);
+                  }}
+                >
+                  <div className="bg-slate-100 font-bold text-center py-0.5 border-b border-slate-300 text-[10px] tracking-wider text-slate-700">
+                    QUOTE
+                  </div>
+                  <div className="grid grid-cols-2 divide-x divide-y divide-slate-200 text-[10px]">
+                    <div className="p-1 bg-[#f8fafc] font-bold text-slate-600">DATE</div>
+                    <div className="p-1 font-mono font-medium text-slate-800">{activeDate}</div>
+                    <div className="p-1 bg-[#f8fafc] font-bold text-slate-600">QUOTE #</div>
+                    <div className="p-1 font-mono font-bold text-blue-800 truncate" title={activeQuoteNumber}>
+                      {activeQuoteNumber}
+                    </div>
+                    <div className="p-1 bg-[#f8fafc] font-bold text-slate-600">VALID</div>
+                    <div className="p-1 font-mono font-medium text-slate-800">07/11/2026</div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </>
+
+            {/* ============================================================== */}
+            {/* EXACT GOOGLE SHEET TABLE WITH ALL 22 COLUMNS                   */}
+            {/* ============================================================== */}
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-xs font-sans">
+                {/* ROW 7: EXACT COLORED HEADERS */}
+                <thead>
+                  <tr className="border-b-2 border-slate-400 text-slate-800 font-bold text-[11px] select-none text-center">
+                    {/* Row Number Header */}
+                    <th className="w-12 bg-slate-200 border-r border-slate-300 py-1.5 text-center text-slate-500 font-mono text-[10px]">
+                      7
+                    </th>
+
+                    {/* Col A: Date */}
+                    <th className="bg-[#eef2e6] border-r border-slate-300 py-2 px-2 min-w-[95px] text-left">
+                      Date
+                    </th>
+
+                    {/* Col B: Flat no/ Loc */}
+                    <th className="bg-[#eef2e6] border-r border-slate-300 py-2 px-2 min-w-[85px] text-left">
+                      <span className="flex items-center justify-between">
+                        <span>Flat no/ Loc</span>
+                        <span className="text-[10px] text-slate-400">▼</span>
+                      </span>
+                    </th>
+
+                    {/* Col C: Client 'Name's' */}
+                    <th className="bg-[#d9ead3] border-r border-slate-300 py-2 px-2 min-w-[130px] text-left text-emerald-950 font-black">
+                      <span className="flex items-center justify-between">
+                        <span>Client &lsquo;Name&apos;s&rsquo;</span>
+                        <span className="text-[10px] text-emerald-700">▼</span>
+                      </span>
+                    </th>
+
+                    {/* Col D: Appt/Building Name */}
+                    <th className="bg-[#eef2e6] border-r border-slate-300 py-2 px-2 min-w-[110px] text-left">
+                      Appt/Building Name
+                    </th>
+
+                    {/* Col E: Product Category */}
+                    <th className="bg-[#f3f4f6] border-r border-slate-300 py-2 px-2 min-w-[110px] text-left">
+                      Product Category
+                    </th>
+
+                    {/* Col F: Item Name */}
+                    <th className="bg-[#f3f4f6] border-r border-slate-300 py-2 px-2 min-w-[140px] text-left">
+                      Item Name
+                    </th>
+
+                    {/* Col G: Frame H */}
+                    <th className="bg-[#fff2cc] border-r border-slate-300 py-2 px-1 min-w-[70px] text-right">
+                      Fr am e H
+                    </th>
+
+                    {/* Col H: Frame W */}
+                    <th className="bg-[#fff2cc] border-r border-slate-300 py-2 px-1 min-w-[70px] text-right">
+                      Fr am e W
+                    </th>
+
+                    {/* Col I: Round of H 76.2 */}
+                    <th className="bg-[#fff2cc] border-r border-slate-300 py-2 px-1 min-w-[75px] text-right">
+                      Rou of H 76.2
+                    </th>
+
+                    {/* Col J: Round of W */}
+                    <th className="bg-[#fff2cc] border-r border-slate-300 py-2 px-1 min-w-[75px] text-right">
+                      Rou of W
+                    </th>
+
+                    {/* Col K: Qty */}
+                    <th className="bg-[#e2efda] border-r border-slate-300 py-2 px-1 min-w-[50px] text-center">
+                      Qty
+                    </th>
+
+                    {/* Col L: R.ft */}
+                    <th className="bg-[#e2efda] border-r border-slate-300 py-2 px-1 min-w-[55px] text-right">
+                      R.ft
+                    </th>
+
+                    {/* Col M: Size Sqft */}
+                    <th className="bg-[#ffd966] border-r border-slate-300 py-2 px-1 min-w-[65px] text-right font-black text-amber-950">
+                      Size Sqft
+                    </th>
+
+                    {/* Col N: Rate */}
+                    <th className="bg-[#ffd966] border-r border-slate-300 py-2 px-1 min-w-[65px] text-right font-black text-amber-950">
+                      Rate
+                    </th>
+
+                    {/* Col O: State */}
+                    <th className="bg-[#fff2cc] border-r border-slate-300 py-2 px-2 min-w-[95px] text-left">
+                      State
+                    </th>
+
+                    {/* Col P: GST18% */}
+                    <th className="bg-[#fff2cc] border-r border-slate-300 py-2 px-1 min-w-[65px] text-center">
+                      GST18%
+                    </th>
+
+                    {/* Col Q: GST Amt */}
+                    <th className="bg-[#f6b26b] border-r border-slate-300 py-2 px-1 min-w-[80px] text-right font-black text-amber-950">
+                      GST Amt
+                    </th>
+
+                    {/* Col R: Net Amount */}
+                    <th className="bg-[#f6b26b] border-r border-slate-300 py-2 px-1 min-w-[90px] text-right font-black text-amber-950">
+                      Net Amount
+                    </th>
+
+                    {/* Col S: Factory Belongs */}
+                    <th className="bg-[#f9cb9c] border-r border-slate-300 py-2 px-2 min-w-[100px] text-left">
+                      Factory Belongs.
+                    </th>
+
+                    {/* Col T: Status/Installation */}
+                    <th className="bg-[#f9cb9c] border-r border-slate-300 py-2 px-2 min-w-[100px] text-left">
+                      Status/ Installation
+                    </th>
+
+                    {/* Col U: Glass H -7mm */}
+                    <th className="bg-[#fff2cc] border-r border-slate-300 py-2 px-1 min-w-[70px] text-right font-bold text-slate-700">
+                      Glass H -7mm
+                    </th>
+
+                    {/* Col V: Glass W -7mm */}
+                    <th className="bg-[#fff2cc] border-r border-slate-300 py-2 px-1 min-w-[70px] text-right font-bold text-slate-700">
+                      Glass W -7mm
+                    </th>
+
+                    {/* Actions */}
+                    <th className="bg-slate-100 py-2 px-1 w-8 text-center text-slate-400"></th>
+                  </tr>
+                </thead>
+
+                {/* SPREADSHEET DATA ROWS */}
+                <tbody className="divide-y divide-slate-200">
+                  {filteredRows.map((r, idx) => {
+                    const rowNumber = 22 + idx; // Matches starting row 22 in user screenshot!
+                    const isSelected = selectedRowId === r.id;
+
+                    return (
+                      <tr
+                        key={r.id}
+                        onClick={() => {
+                          setSelectedRowId(r.id);
+                          setActiveCellCoord(`C${rowNumber}`);
+                          setActiveCellValue(`${r.clientName} | ${r.description} | ${r.frameHeightMm}x${r.frameWidthMm} | Net: ${r.netAmount}`);
+                        }}
+                        className={`hover:bg-blue-50/40 transition text-[11px] ${
+                          isSelected ? "bg-blue-50/70 ring-1 ring-blue-400" : ""
+                        }`}
+                      >
+                        {/* Row Number */}
+                        <td className="bg-slate-100 border-r border-slate-300 py-1 px-1 text-center font-mono text-slate-500 select-none text-[10px]">
+                          {rowNumber}
+                        </td>
+
+                        {/* Col A: Date */}
+                        <td className="border-r border-slate-200 p-0.5 font-mono text-slate-700">
+                          <input
+                            type="text"
+                            value={r.date || "07/09/2026"}
+                            onChange={(e) => handleCellChange(r.id, { date: e.target.value })}
+                            className="w-full px-1.5 py-1 text-[11px] bg-transparent hover:bg-white focus:bg-white focus:outline-none border border-transparent focus:border-blue-400 rounded-xs"
+                          />
+                        </td>
+
+                        {/* Col B: Flat */}
+                        <td className="border-r border-slate-200 p-0.5 font-mono text-slate-800">
+                          <input
+                            type="text"
+                            value={r.flat}
+                            onChange={(e) => handleCellChange(r.id, { flat: e.target.value })}
+                            placeholder="Flat"
+                            className="w-full px-1.5 py-1 text-[11px] bg-transparent hover:bg-white focus:bg-white focus:outline-none border border-transparent focus:border-blue-400 rounded-xs"
+                          />
+                        </td>
+
+                        {/* Col C: Client Name */}
+                        <td className="border-r border-slate-200 p-0.5 font-semibold text-slate-900">
+                          <input
+                            type="text"
+                            value={r.clientName}
+                            onChange={(e) => handleCellChange(r.id, { clientName: e.target.value })}
+                            placeholder="Client Name"
+                            className="w-full px-1.5 py-1 text-[11px] font-bold bg-transparent hover:bg-white focus:bg-white focus:outline-none border border-transparent focus:border-blue-400 rounded-xs"
+                          />
+                        </td>
+
+                        {/* Col D: Building */}
+                        <td className="border-r border-slate-200 p-0.5 text-slate-700">
+                          <input
+                            type="text"
+                            value={r.building}
+                            onChange={(e) => handleCellChange(r.id, { building: e.target.value })}
+                            placeholder="Building"
+                            className="w-full px-1.5 py-1 text-[11px] bg-transparent hover:bg-white focus:bg-white focus:outline-none border border-transparent focus:border-blue-400 rounded-xs"
+                          />
+                        </td>
+
+                        {/* Col E: Category */}
+                        <td className="border-r border-slate-200 p-0.5 text-slate-600">
+                          <input
+                            type="text"
+                            value={r.category || ""}
+                            onChange={(e) => handleCellChange(r.id, { category: e.target.value })}
+                            placeholder="Category"
+                            className="w-full px-1.5 py-1 text-[11px] bg-transparent hover:bg-white focus:bg-white focus:outline-none border border-transparent focus:border-blue-400 rounded-xs"
+                          />
+                        </td>
+
+                        {/* Col F: Item Name / Description */}
+                        <td className="border-r border-slate-200 p-0.5">
+                          <input
+                            type="text"
+                            value={r.description}
+                            onChange={(e) => handleCellChange(r.id, { description: e.target.value })}
+                            placeholder="Item Name"
+                            className="w-full px-1.5 py-1 text-[11px] font-semibold text-slate-800 bg-transparent hover:bg-white focus:bg-white focus:outline-none border border-transparent focus:border-blue-400 rounded-xs"
+                          />
+                        </td>
+
+                        {/* Col G: Frame H */}
+                        <td className="border-r border-slate-200 p-0.5 text-right font-mono">
+                          <input
+                            type="number"
+                            value={r.frameHeightMm || ""}
+                            onChange={(e) => handleCellChange(r.id, { frameHeightMm: parseFloat(e.target.value) || 0 })}
+                            className="w-full px-1 py-1 text-right text-[11px] bg-transparent hover:bg-white focus:bg-white focus:outline-none border border-transparent focus:border-blue-400 rounded-xs font-mono font-medium"
+                          />
+                        </td>
+
+                        {/* Col H: Frame W */}
+                        <td className="border-r border-slate-200 p-0.5 text-right font-mono">
+                          <input
+                            type="number"
+                            value={r.frameWidthMm || ""}
+                            onChange={(e) => handleCellChange(r.id, { frameWidthMm: parseFloat(e.target.value) || 0 })}
+                            className="w-full px-1 py-1 text-right text-[11px] bg-transparent hover:bg-white focus:bg-white focus:outline-none border border-transparent focus:border-blue-400 rounded-xs font-mono font-medium"
+                          />
+                        </td>
+
+                        {/* Col I: Round of H (Computed) */}
+                        <td className="border-r border-slate-200 p-1 text-right font-mono text-slate-600 bg-[#fffdf5]">
+                          {r.roundedHeightMm}
+                        </td>
+
+                        {/* Col J: Round of W (Computed) */}
+                        <td className="border-r border-slate-200 p-1 text-right font-mono text-slate-600 bg-[#fffdf5]">
+                          {r.roundedWidthMm}
+                        </td>
+
+                        {/* Col K: Qty */}
+                        <td className="border-r border-slate-200 p-0.5 text-center font-mono">
+                          <input
+                            type="number"
+                            min="1"
+                            value={r.quantity || ""}
+                            onChange={(e) => handleCellChange(r.id, { quantity: parseInt(e.target.value, 10) || 1 })}
+                            className="w-full px-1 py-1 text-center text-[11px] bg-transparent hover:bg-white focus:bg-white focus:outline-none border border-transparent focus:border-blue-400 rounded-xs font-mono font-bold"
+                          />
+                        </td>
+
+                        {/* Col L: R.ft (Computed) */}
+                        <td className="border-r border-slate-200 p-1 text-right font-mono text-slate-600">
+                          {r.runningFeet.toFixed(1)}
+                        </td>
+
+                        {/* Col M: Size Sqft (Computed) */}
+                        <td className="border-r border-slate-200 p-1 text-right font-mono font-semibold text-slate-900 bg-[#fefce8]">
+                          {r.sqft.toFixed(3)}
+                        </td>
+
+                        {/* Col N: Rate */}
+                        <td className="border-r border-slate-200 p-0.5 text-right font-mono">
+                          <input
+                            type="number"
+                            value={r.rate || ""}
+                            onChange={(e) => handleCellChange(r.id, { rate: parseFloat(e.target.value) || 0 })}
+                            className="w-full px-1 py-1 text-right text-[11px] font-mono font-bold text-slate-900 bg-transparent hover:bg-white focus:bg-white focus:outline-none border border-transparent focus:border-blue-400 rounded-xs"
+                          />
+                        </td>
+
+                        {/* Col O: State */}
+                        <td className="border-r border-slate-200 p-0.5">
+                          <select
+                            value={r.state}
+                            onChange={(e) => handleCellChange(r.id, { state: e.target.value })}
+                            className="w-full px-1 py-1 text-[11px] bg-transparent hover:bg-white focus:bg-white border border-transparent focus:border-blue-400 rounded-xs"
+                          >
+                            <option value="Karnataka">Karnataka</option>
+                            <option value="Tamil Nadu">Tamil Nadu</option>
+                            <option value="Maharashtra">Maharashtra</option>
+                          </select>
+                        </td>
+
+                        {/* Col P: GST18% */}
+                        <td className="border-r border-slate-200 p-1 text-center text-[10px] text-slate-600 font-mono">
+                          {r.state === "Karnataka" ? "9%+9%" : "18%"}
+                        </td>
+
+                        {/* Col Q: GST Amt (Computed) */}
+                        <td className="border-r border-slate-200 p-1 text-right font-mono text-slate-800 bg-[#fffbeb]">
+                          ₹{r.gstAmount.toFixed(2)}
+                        </td>
+
+                        {/* Col R: Net Amount (Computed) */}
+                        <td className="border-r border-slate-200 p-1 text-right font-mono font-bold text-slate-900 bg-[#fffbeb]">
+                          ₹{r.netAmount.toFixed(2)}
+                        </td>
+
+                        {/* Col S: Factory Belongs */}
+                        <td className="border-r border-slate-200 p-0.5">
+                          <select
+                            value={r.factory}
+                            onChange={(e) => handleCellChange(r.id, { factory: e.target.value })}
+                            className="w-full px-1 py-1 text-[11px] bg-transparent hover:bg-white focus:bg-white border border-transparent focus:border-blue-400 rounded-xs"
+                          >
+                            {factories.map((f) => (
+                              <option key={f.id} value={f.name}>
+                                {f.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+
+                        {/* Col T: Status/Installation */}
+                        <td className="border-r border-slate-200 p-0.5">
+                          <select
+                            value={r.status}
+                            onChange={(e) => handleCellChange(r.id, { status: e.target.value })}
+                            className="w-full px-1 py-1 text-[11px] bg-transparent hover:bg-white focus:bg-white border border-transparent focus:border-blue-400 rounded-xs"
+                          >
+                            <option value="Draft">Draft</option>
+                            <option value="Approved">Approved</option>
+                            <option value="In production">In Production</option>
+                            <option value="Delivered">Delivered</option>
+                          </select>
+                        </td>
+
+                        {/* Col U: Glass H -7mm (Computed) */}
+                        <td className="border-r border-slate-200 p-1 text-right font-mono text-slate-700 bg-[#fffef0]">
+                          {r.glassCutHeightMm}
+                        </td>
+
+                        {/* Col V: Glass W -7mm (Computed) */}
+                        <td className="border-r border-slate-200 p-1 text-right font-mono text-slate-700 bg-[#fffef0]">
+                          {r.glassCutWidthMm}
+                        </td>
+
+                        {/* Delete Row Action */}
+                        <td className="p-0.5 text-center">
+                          <button
+                            onClick={() => handleDeleteRow(r.id)}
+                            className="text-slate-300 hover:text-red-600 font-bold px-1 transition"
+                            title="Delete Row"
+                          >
+                            ×
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* ============================================================== */}
+            {/* EXACT FOOTER: BANK DETAILS, WORDS, TOTALS, AND TERMS (1501-1515) */}
+            {/* ============================================================== */}
+            <div className="border-t-2 border-slate-300 bg-[#fafafa] p-4 text-xs font-sans">
+              <div className="grid grid-cols-12 gap-6">
+                {/* Left: Bank Details & Terms */}
+                <div className="col-span-12 lg:col-span-8 space-y-4">
+                  {/* Bank Details */}
+                  <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-1 font-mono text-[11px] text-slate-700 leading-relaxed shadow-2xs">
+                    <div className="font-bold text-slate-900">COMPANY NAME - GLASS CARE ENTERPRISES</div>
+                    <div>STATE BANK OF INDIA / IFSC CODE: <span className="font-bold text-slate-900">SBIN0002263</span></div>
+                    <div>UPI ID | <span className="font-bold text-blue-700">9945988552@upi</span></div>
+                    <div>ACCOUNT NO - <span className="font-bold text-slate-900">42443380892</span></div>
+                    <div>BRANCH - MASQUE ROAD, RICHARDS TOWN BANGALORE 560005</div>
+                  </div>
+
+                  {/* Total In Words */}
+                  <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-lg">
+                    <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">Total In Words</span>
+                    <p className="text-xs font-serif italic font-bold text-amber-950 mt-0.5">
+                      &ldquo;{overallTotals.words}&rdquo;
+                    </p>
+                  </div>
+
+                  {/* Terms & Conditions */}
+                  <div className="p-3 bg-white rounded-lg border border-slate-200 text-[11px] space-y-1 text-slate-600 leading-normal">
+                    <div className="font-bold text-slate-800 uppercase tracking-wider text-[10px]">TERMS & CONDITIONS:</div>
+                    <ol className="list-decimal list-inside space-y-0.5 pl-1">
+                      <li>Order once confirmed cannot be cancelled.</li>
+                      <li>Any complaint related to processing quality should be informed at time of unloading duly remarked on DC.</li>
+                      <li>All disputes shall be subject to Bangalore jurisdiction only.</li>
+                      <li>Initial payment 70% of gross price to be paid at the time of ordering.</li>
+                      <li>Interim payment 20% of gross price on delivery pallet glass &amp; material of the goods to be used for the work.</li>
+                      <li>Final payment 10% of gross price on completion of works.</li>
+                    </ol>
+                  </div>
+
+                  {/* Signatures */}
+                  <div className="pt-2 flex items-center justify-between text-xs text-slate-500">
+                    <div>
+                      <div className="w-48 border-b border-slate-300 mb-1"></div>
+                      <span>Authorized Signature</span>
+                    </div>
+                    <div className="font-serif italic text-slate-600 font-semibold">
+                      Thanks for your business.
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: Freight Input & Grand Totals Box */}
+                <div className="col-span-12 lg:col-span-4">
+                  <div className="bg-white rounded-xl border border-slate-300 p-4 shadow-xs space-y-3">
+                    <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider pb-2 border-b border-slate-200">
+                      Summary Calculation
+                    </h3>
+
+                    {/* Freight Charge Input */}
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium text-slate-600">Freight Charge:</span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-slate-400 font-mono">₹</span>
+                        <input
+                          type="number"
+                          value={freightCharge || ""}
+                          onChange={(e) => setFreightCharge(parseFloat(e.target.value) || 0)}
+                          placeholder="0.00"
+                          className="w-24 text-right px-2 py-1 text-xs border border-slate-200 rounded font-mono font-medium focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+                      <span className="text-slate-600 font-medium">Sub Total:</span>
+                      <span className="font-mono font-bold text-slate-900">
+                        {formatIndianCurrency(overallTotals.subTotal)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-600 font-medium">GST 18%:</span>
+                      <span className="font-mono font-bold text-slate-900">
+                        {formatIndianCurrency(overallTotals.gst)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-slate-400 pt-1 border-t border-slate-100">
+                      <span>Exact Grand Total:</span>
+                      <span className="font-mono">{formatIndianCurrency(overallTotals.grandTotal)}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-slate-400">
+                      <span>Round Off:</span>
+                      <span className="font-mono">{overallTotals.roundOff >= 0 ? `+${overallTotals.roundOff.toFixed(2)}` : overallTotals.roundOff.toFixed(2)}</span>
+                    </div>
+
+                    {/* Final Display Total */}
+                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 flex items-center justify-between">
+                      <span className="text-xs font-black uppercase text-blue-900">Grand Total:</span>
+                      <span className="font-mono text-lg font-black text-blue-950">
+                        {formatIndianCurrency(overallTotals.displayTotal)}
+                      </span>
+                    </div>
+
+                    {/* Action buttons inside summary */}
+                    <div className="pt-2 flex flex-col gap-2">
+                      <button
+                        onClick={() => {
+                          const targetGrp = groupedQuotes.find((g) => g.clientName === activeCustomer) || groupedQuotes[0];
+                          if (targetGrp) handleCreateOfficialQuote(targetGrp);
+                        }}
+                        disabled={isGeneratingQuote}
+                        className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+                      >
+                        <span>📄</span>
+                        <span>Save as Official Quote</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          const waText = encodeURIComponent(
+                            `*GLASS CARE ENTERPRISES - QUOTATION*\nCustomer: ${activeCustomer}\nFlat: ${activeFlat}\nQuote No: ${activeQuoteNumber}\nTotal Amount: ${formatIndianCurrency(overallTotals.displayTotal)}\nSub Total: ${formatIndianCurrency(overallTotals.subTotal)}\nGST 18%: ${formatIndianCurrency(overallTotals.gst)}\n\nThank you for choosing Glass Care Enterprises!`
+                          );
+                          window.open(`https://wa.me/?text=${waText}`, "_blank");
+                        }}
+                        className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5"
+                      >
+                        <span>💬</span>
+                        <span>Share on WhatsApp</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         ) : (
-          /* Quotes Tab: Auto-grouped by Client + Flat + Building */
+          /* ============================================================== */
+          /* AUTO-GROUPED QUOTES TAB (_Notelist @26)                        */
+          /* ============================================================== */
           <div className="space-y-4">
             <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
               <div>
@@ -1181,7 +1499,7 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                 <button
                   onClick={handleBatchGenerateQuotes}
                   disabled={isGeneratingQuote || groupedQuotes.length === 0}
-                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1.5 disabled:opacity-50"
+                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
                   title="Generate official quotes for all customers in one click"
                 >
                   <span>⚡</span>
@@ -1255,7 +1573,7 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                     </div>
                   </div>
 
-                  <div className="mt-3 text-xs italic text-slate-500">
+                  <div className="mt-3 text-xs italic text-slate-500 font-serif">
                     &ldquo;{q.displayTotalWords}&rdquo;
                   </div>
 
@@ -1301,9 +1619,107 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
         )}
       </main>
 
+      {/* ============================================================== */}
+      {/* 4. BOTTOM GOOGLE SHEETS TABS BAR (Exact matching layout)       */}
+      {/* ============================================================== */}
+      <footer className="bg-white border-t border-slate-300 px-3 py-1 flex items-center justify-between text-xs sticky bottom-0 z-30 shadow-xs">
+        <div className="flex items-center gap-1 overflow-x-auto">
+          {/* Add Sheet / Add Row */}
+          <button
+            onClick={handleAddRow}
+            className="w-7 h-7 rounded hover:bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-sm cursor-pointer"
+            title="Add row"
+          >
+            +
+          </button>
+
+          {/* Sheets List Icon */}
+          <button
+            className="w-7 h-7 rounded hover:bg-slate-100 text-slate-600 flex items-center justify-center text-sm cursor-pointer"
+            title="All sheets"
+          >
+            ≡
+          </button>
+
+          <span className="text-slate-300">|</span>
+
+          {/* Folder Tab */}
+          <span className="px-2.5 py-1 text-slate-500 font-medium text-xs flex items-center gap-1 cursor-default">
+            📁 GCE-Folders
+          </span>
+
+          {/* Primary Tab: _Notebook Size's @26L */}
+          <button
+            onClick={() => setActiveTab("sheet")}
+            className={`px-3 py-1.5 font-bold text-xs flex items-center gap-1.5 border-b-2 transition ${
+              activeTab === "sheet"
+                ? "border-emerald-600 text-emerald-800 bg-emerald-50/50"
+                : "border-transparent text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            <span>_Notebook Size&apos;s @26L</span>
+            <span className="text-[10px] text-slate-400">▼</span>
+          </button>
+
+          {/* Secondary Tab: _Notelist @26 (Quotes) */}
+          <button
+            onClick={() => setActiveTab("quotes")}
+            className={`px-3 py-1.5 font-bold text-xs flex items-center gap-1.5 border-b-2 transition ${
+              activeTab === "quotes"
+                ? "border-emerald-600 text-emerald-800 bg-emerald-50/50"
+                : "border-transparent text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            <span>🔒 _Notelist @26</span>
+            <span className="px-1.5 py-0.2 bg-blue-100 text-blue-800 text-[10px] rounded-full">
+              {groupedQuotes.length}
+            </span>
+          </button>
+
+          <span className="text-slate-300">|</span>
+
+          {/* App Navigation Links */}
+          <Link
+            href="/quotes"
+            className="px-2.5 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
+          >
+            Quotes Registry
+          </Link>
+          <Link
+            href="/factory"
+            className="px-2.5 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
+          >
+            Factory Sheet
+          </Link>
+          <Link
+            href="/payments"
+            className="px-2.5 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
+          >
+            Payments
+          </Link>
+          <Link
+            href="/dashboard"
+            className="px-2.5 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
+          >
+            Dashboard
+          </Link>
+          <Link
+            href="/settings"
+            className="px-2.5 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
+          >
+            Settings
+          </Link>
+        </div>
+
+        {/* Counter displayed on bottom right */}
+        <div className="flex items-center gap-3 text-slate-500 font-mono text-[11px] shrink-0 pl-4">
+          <span>{filteredRows.length} of 1,510 rows displayed</span>
+        </div>
+      </footer>
+
       {/* Floating Toast Notification */}
       {toastMsg && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 border border-slate-700 animate-bounce">
+        <div className="fixed bottom-12 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-slate-700 animate-bounce">
           <span className="text-emerald-400 font-bold text-base">✓</span>
           <span className="text-xs font-medium">{toastMsg}</span>
         </div>
@@ -1381,7 +1797,7 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                 <button
                   type="button"
                   onClick={() => setImportModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 transition"
+                  className="px-4 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -1403,7 +1819,7 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                       showToast("No valid rows could be parsed");
                     }
                   }}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition cursor-pointer"
                 >
                   Import & Auto-Group Rows
                 </button>
@@ -1415,4 +1831,3 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
     </div>
   );
 }
-
