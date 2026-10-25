@@ -65,7 +65,7 @@ export async function GET() {
         netProfit: liveProfit,
         partner30Percent: livePartner30,
         owner70Percent: liveOwner70,
-        partnerRule: "Partner: VIEW ONLY | Tum: EDIT",
+        partnerRule: "Partner: VIEW ONLY | Owner: EDIT",
         formula: "Net Profit = Sale - Purchase - Expense",
       },
     });

@@ -604,7 +604,7 @@ async function main() {
       partnerAmount: 15555,
       ownerAmount: 36295,
       status: "RECEIVED",
-      notes: "October 2026: Profit = Sale (1,18,500) - Purchase (52,400) - Expense (14,250) = 51,850. Partner 30% = 15,555, Tum 70% = 36,295",
+      notes: "October 2026: Profit = Sale (1,18,500) - Purchase (52,400) - Expense (14,250) = 51,850. Partner 30% = 15,555, Owner 70% = 36,295",
     },
     create: {
       id: "profit-month-10-2026",
@@ -617,7 +617,7 @@ async function main() {
       partnerAmount: 15555,
       ownerAmount: 36295,
       status: "RECEIVED",
-      notes: "October 2026: Profit = Sale (1,18,500) - Purchase (52,400) - Expense (14,250) = 51,850. Partner 30% = 15,555, Tum 70% = 36,295",
+      notes: "October 2026: Profit = Sale (1,18,500) - Purchase (52,400) - Expense (14,250) = 51,850. Partner 30% = 15,555, Owner 70% = 36,295",
     },
   });
   console.log("Seeded Tab 6: Monthly Profit & Partner 30/70 Split");
