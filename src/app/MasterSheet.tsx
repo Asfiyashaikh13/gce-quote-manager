@@ -29,6 +29,8 @@ interface MasterSheetProps {
 export function MasterSheet({ initialRows, products, factories }: MasterSheetProps) {
   // Navigation tabs matching the Google Sheet tabs: _Notebook Size's @26L and _Notelist @26
   const [activeTab, setActiveTab] = useState<"sheet" | "quotes">("sheet");
+  const [viewMode, setViewMode] = useState<"professional" | "full">("professional");
+  const [showBankDetails, setShowBankDetails] = useState<boolean>(false);
   const [rows, setRows] = useState<MasterSheetRowData[]>(initialRows);
   const [history, setHistory] = useState<MasterSheetRowData[][]>([initialRows]);
   const [historyIndex, setHistoryIndex] = useState(0);
@@ -239,6 +241,22 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
     }
     const filtered = rows.filter((r) => r.id !== id);
     updateRowsWithHistory(filtered);
+  };
+
+  // Duplicate Row
+  const handleDuplicateRow = (id: string) => {
+    const target = rows.find((r) => r.id === id);
+    if (!target) return;
+    const duplicated = recalculateRow({
+      ...target,
+      id: `row-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      rowOrder: rows.length + 1,
+    });
+    const targetIndex = rows.findIndex((r) => r.id === id);
+    const nextRows = [...rows];
+    nextRows.splice(targetIndex + 1, 0, duplicated);
+    updateRowsWithHistory(nextRows);
+    showToast("Row duplicated");
   };
 
   // Fill Down: copy values from above row into selected row
@@ -939,6 +957,35 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
             <span className="text-slate-500 font-mono text-[11px]">
               {lastSavedTime ? `Autosaved at ${lastSavedTime}` : "Auto-saving to SQLite"}
             </span>
+
+            {/* View Mode Toggle */}
+            <div className="inline-flex rounded-lg border border-slate-300 bg-white p-0.5 shadow-2xs">
+              <button
+                onClick={() => setViewMode("professional")}
+                className={`px-2.5 py-0.5 rounded text-xs font-bold flex items-center gap-1 transition cursor-pointer ${
+                  viewMode === "professional"
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+                title="Professional executive view with essential 13 columns, project header, and no repetitive clutter"
+              >
+                <span>✨</span>
+                <span>Professional View</span>
+              </button>
+              <button
+                onClick={() => setViewMode("full")}
+                className={`px-2.5 py-0.5 rounded text-xs font-semibold flex items-center gap-1 transition cursor-pointer ${
+                  viewMode === "full"
+                    ? "bg-slate-700 text-white shadow-xs"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+                title="Full raw Google Sheet view with all 22 columns including intermediate rounding numbers"
+              >
+                <span>📋</span>
+                <span>Full (22 Cols)</span>
+              </button>
+            </div>
+
             <div className="inline-flex rounded border border-slate-300 bg-white p-0.5">
               <button
                 onClick={() => setActiveTab("sheet")}
@@ -960,16 +1007,18 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
           </div>
         </div>
 
-        {/* 3. Formula Bar (fx) */}
-        <div className="bg-white px-4 py-1 border-t border-slate-200 flex items-center gap-2 text-xs">
-          <div className="w-16 font-mono text-center font-bold text-slate-600 border-r border-slate-200 pr-2">
-            {activeCellCoord}
+        {/* 3. Formula Bar (fx) - Only shown in Full Sheet legacy view */}
+        {viewMode === "full" && (
+          <div className="bg-white px-4 py-1 border-t border-slate-200 flex items-center gap-2 text-xs">
+            <div className="w-16 font-mono text-center font-bold text-slate-600 border-r border-slate-200 pr-2">
+              {activeCellCoord}
+            </div>
+            <span className="font-serif italic font-bold text-slate-400 text-sm">fx</span>
+            <div className="flex-1 font-mono text-slate-700 bg-slate-50 px-2 py-0.5 rounded border border-slate-200 text-xs truncate">
+              {activeCellValue}
+            </div>
           </div>
-          <span className="font-serif italic font-bold text-slate-400 text-sm">fx</span>
-          <div className="flex-1 font-mono text-slate-700 bg-slate-50 px-2 py-0.5 rounded border border-slate-200 text-xs truncate">
-            {activeCellValue}
-          </div>
-        </div>
+        )}
 
         {/* 4. Multi-Client Switcher Pills */}
         <div className="bg-[#f0f4f9] px-4 py-1.5 border-t border-slate-200 flex items-center gap-1.5 overflow-x-auto text-xs">
@@ -1030,9 +1079,82 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
       <main className="flex-1 p-3 overflow-x-auto">
         {activeTab === "sheet" ? (
           <div className="bg-white rounded-lg border border-slate-300 shadow-sm inline-block min-w-full">
-            {/* ============================================================== */}
-            {/* EXACT GOOGLE SHEET QUOTE HEADER (Rows 1 to 6)                  */}
-            {/* ============================================================== */}
+            {/* Header: Professional Executive Bar OR Legacy 4 Boxes */}
+            {viewMode === "professional" ? (
+              <div className="p-3.5 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white rounded-t-lg border-b border-slate-700">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  {/* Left: Client & Project Info */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-lg font-black text-blue-300 shadow-inner shrink-0">
+                      📐
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-1.5">
+                          <span>{activeCustomer}</span>
+                        </h2>
+                        {activeBuilding && (
+                          <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            {activeBuilding}
+                          </span>
+                        )}
+                        {activeFlat && (
+                          <span className="text-[11px] font-mono text-slate-300 bg-slate-800/90 px-2 py-0.5 rounded border border-slate-700">
+                            Flat {activeFlat}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-slate-300 mt-0.5 flex flex-wrap items-center gap-2 font-mono">
+                        <span>Quote: <strong className="text-white">{activeQuoteNumber}</strong></span>
+                        <span className="text-slate-600">•</span>
+                        <span>Date: {activeDate}</span>
+                        <span className="text-slate-600">•</span>
+                        <span>State: Karnataka (GST 18%)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right: Key Metric Summary Chips */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-1 text-center min-w-[70px]">
+                      <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Items</div>
+                      <div className="text-sm font-bold font-mono text-white">{filteredRows.length}</div>
+                    </div>
+
+                    <div className="bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-1 text-center min-w-[90px]">
+                      <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Total Area</div>
+                      <div className="text-sm font-bold font-mono text-amber-300">
+                        {filteredRows.reduce((sum, r) => sum + r.sqft, 0).toFixed(2)} <span className="text-[10px] font-sans">sqft</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-1 text-center min-w-[100px]">
+                      <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Sub Total</div>
+                      <div className="text-sm font-bold font-mono text-slate-200">
+                        {formatIndianCurrency(overallTotals.subTotal)}
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-1 text-center min-w-[90px]">
+                      <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">GST (18%)</div>
+                      <div className="text-sm font-bold font-mono text-slate-300">
+                        {formatIndianCurrency(overallTotals.gst)}
+                      </div>
+                    </div>
+
+                    <div className="bg-gradient-to-r from-emerald-600 to-teal-600 border border-emerald-400/40 rounded-lg px-3.5 py-1 text-center shadow-xs min-w-[110px]">
+                      <div className="text-[10px] uppercase tracking-wider text-emerald-100 font-bold">Grand Total</div>
+                      <div className="text-sm font-black font-mono text-white">
+                        {formatIndianCurrency(overallTotals.displayTotal)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+            /* ============================================================== */
+            /* EXACT GOOGLE SHEET QUOTE HEADER (Rows 1 to 6)                  */
+            /* ============================================================== */
             <div className="p-3 border-b-2 border-slate-300 bg-[#fdfdfd]">
               <div className="grid grid-cols-12 gap-3 items-stretch">
                 {/* 1. GCE LOGO (A1:D5) */}
@@ -1163,10 +1285,236 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                 </div>
               </div>
             </div>
+            )}
 
-            {/* ============================================================== */}
-            {/* EXACT GOOGLE SHEET TABLE WITH ALL 22 COLUMNS                   */}
-            {/* ============================================================== */}
+            {viewMode === "professional" ? (
+              /* ============================================================== */
+              /* PROFESSIONAL STREAMLINED MEASUREMENT TABLE (14 Essential Cols) */
+              /* ============================================================== */
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-xs font-sans">
+                  <thead>
+                    <tr className="bg-slate-100 border-b-2 border-slate-300 text-slate-700 font-bold text-[11px] select-none text-left">
+                      <th className="w-10 py-2.5 px-2 text-center text-slate-600 font-mono border-r border-slate-200">#</th>
+                      <th className="py-2.5 px-3 min-w-[220px] border-r border-slate-200 text-slate-900">
+                        Item Description / Glass Type
+                      </th>
+                      <th className="py-2.5 px-2 min-w-[90px] text-right border-r border-slate-200 text-slate-800">
+                        Frame H (mm)
+                      </th>
+                      <th className="py-2.5 px-2 min-w-[90px] text-right border-r border-slate-200 text-slate-800">
+                        Frame W (mm)
+                      </th>
+                      <th className="py-2.5 px-2 min-w-[60px] text-center border-r border-slate-200 text-slate-800">
+                        Qty
+                      </th>
+                      <th className="py-2.5 px-2 min-w-[85px] text-right border-r border-slate-200 text-amber-900 bg-amber-50/60 font-black">
+                        Area (Sqft)
+                      </th>
+                      <th className="py-2.5 px-2 min-w-[90px] text-right border-r border-slate-200 text-slate-900 font-bold">
+                        Rate (₹/sqft)
+                      </th>
+                      <th className="py-2.5 px-2 min-w-[90px] text-right border-r border-slate-200 text-slate-800">
+                        GST 18% (₹)
+                      </th>
+                      <th className="py-2.5 px-2 min-w-[105px] text-right border-r border-slate-200 text-blue-950 font-black bg-blue-50/50">
+                        Net Total (₹)
+                      </th>
+                      <th className="py-2.5 px-2 min-w-[95px] text-right border-r border-slate-200 text-slate-700 bg-slate-50/70" title="Factory glass cutting height deduction (-7mm)">
+                        Glass Cut H
+                      </th>
+                      <th className="py-2.5 px-2 min-w-[95px] text-right border-r border-slate-200 text-slate-700 bg-slate-50/70" title="Factory glass cutting width deduction (-7mm)">
+                        Glass Cut W
+                      </th>
+                      <th className="py-2.5 px-2 min-w-[130px] border-r border-slate-200 text-slate-800">
+                        Factory
+                      </th>
+                      <th className="py-2.5 px-2 min-w-[120px] border-r border-slate-200 text-slate-800">
+                        Status
+                      </th>
+                      <th className="w-16 py-2.5 px-2 text-center text-slate-500">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white">
+                    {filteredRows.map((r, idx) => {
+                      const rowNumber = idx + 1;
+                      const isSelected = selectedRowId === r.id;
+                      return (
+                        <tr
+                          key={r.id}
+                          onClick={() => {
+                            setSelectedRowId(r.id);
+                            setActiveCellCoord(`C${rowNumber}`);
+                            setActiveCellValue(`${r.clientName} | ${r.description} | ${r.frameHeightMm}x${r.frameWidthMm} | Net: ${r.netAmount}`);
+                          }}
+                          className={`hover:bg-blue-50/40 transition text-[11px] ${
+                            isSelected ? "bg-blue-50/60 ring-1 ring-blue-300" : ""
+                          }`}
+                        >
+                          {/* Row Number */}
+                          <td className="bg-slate-50 border-r border-slate-200 py-1.5 px-1 text-center font-mono text-slate-500 select-none text-[11px] font-semibold">
+                            {rowNumber}
+                          </td>
+
+                          {/* Item Description / Glass Type with suggestions */}
+                          <td className="border-r border-slate-200 p-0.5">
+                            <input
+                              type="text"
+                              list={`prods-${r.id}`}
+                              value={r.description}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                const match = products.find((p) => p.name.toLowerCase() === val.toLowerCase());
+                                if (match) {
+                                  handleCellChange(r.id, { description: match.name, rate: match.rate, productId: match.code || "" });
+                                } else {
+                                  handleCellChange(r.id, { description: val });
+                                }
+                              }}
+                              placeholder="Item Name / Glass Type"
+                              className="w-full px-2 py-1 text-[11px] font-semibold text-slate-900 bg-transparent hover:bg-white focus:bg-white focus:outline-none border border-transparent focus:border-blue-400 rounded"
+                            />
+                            <datalist id={`prods-${r.id}`}>
+                              {products.map((p) => (
+                                <option key={p.id} value={p.name}>
+                                  {p.name} — ₹{p.rate}/sqft
+                                </option>
+                              ))}
+                            </datalist>
+                          </td>
+
+                          {/* Frame H (mm) */}
+                          <td className="border-r border-slate-200 p-0.5 text-right font-mono">
+                            <input
+                              type="number"
+                              value={r.frameHeightMm || ""}
+                              onChange={(e) => handleCellChange(r.id, { frameHeightMm: parseFloat(e.target.value) || 0 })}
+                              className="w-full px-1.5 py-1 text-right text-[11px] bg-transparent hover:bg-white focus:bg-white focus:outline-none border border-transparent focus:border-blue-400 rounded font-mono font-medium text-slate-800"
+                            />
+                          </td>
+
+                          {/* Frame W (mm) */}
+                          <td className="border-r border-slate-200 p-0.5 text-right font-mono">
+                            <input
+                              type="number"
+                              value={r.frameWidthMm || ""}
+                              onChange={(e) => handleCellChange(r.id, { frameWidthMm: parseFloat(e.target.value) || 0 })}
+                              className="w-full px-1.5 py-1 text-right text-[11px] bg-transparent hover:bg-white focus:bg-white focus:outline-none border border-transparent focus:border-blue-400 rounded font-mono font-medium text-slate-800"
+                            />
+                          </td>
+
+                          {/* Qty */}
+                          <td className="border-r border-slate-200 p-0.5 text-center font-mono">
+                            <input
+                              type="number"
+                              min="1"
+                              value={r.quantity || ""}
+                              onChange={(e) => handleCellChange(r.id, { quantity: parseInt(e.target.value, 10) || 1 })}
+                              className="w-full px-1 py-1 text-center text-[11px] bg-transparent hover:bg-white focus:bg-white focus:outline-none border border-transparent focus:border-blue-400 rounded font-mono font-bold text-slate-900"
+                            />
+                          </td>
+
+                          {/* Computed Area (Sqft) */}
+                          <td className="border-r border-slate-200 p-1.5 text-right font-mono font-bold text-amber-950 bg-amber-50/40">
+                            {r.sqft.toFixed(3)}
+                          </td>
+
+                          {/* Rate (₹/sqft) */}
+                          <td className="border-r border-slate-200 p-0.5 text-right font-mono">
+                            <input
+                              type="number"
+                              value={r.rate || ""}
+                              onChange={(e) => handleCellChange(r.id, { rate: parseFloat(e.target.value) || 0 })}
+                              className="w-full px-1.5 py-1 text-right text-[11px] font-mono font-bold text-slate-900 bg-transparent hover:bg-white focus:bg-white focus:outline-none border border-transparent focus:border-blue-400 rounded"
+                            />
+                          </td>
+
+                          {/* GST Amt (₹) */}
+                          <td className="border-r border-slate-200 p-1.5 text-right font-mono text-slate-700">
+                            ₹{r.gstAmount.toFixed(2)}
+                          </td>
+
+                          {/* Net Total (₹) */}
+                          <td className="border-r border-slate-200 p-1.5 text-right font-mono font-black text-blue-900 bg-blue-50/30">
+                            ₹{r.netAmount.toFixed(2)}
+                          </td>
+
+                          {/* Glass Cut H (-7mm) */}
+                          <td className="border-r border-slate-200 p-1.5 text-right font-mono text-slate-600 bg-slate-50/40">
+                            {r.glassCutHeightMm} mm
+                          </td>
+
+                          {/* Glass Cut W (-7mm) */}
+                          <td className="border-r border-slate-200 p-1.5 text-right font-mono text-slate-600 bg-slate-50/40">
+                            {r.glassCutWidthMm} mm
+                          </td>
+
+                          {/* Factory */}
+                          <td className="border-r border-slate-200 p-0.5">
+                            <select
+                              value={r.factory}
+                              onChange={(e) => handleCellChange(r.id, { factory: e.target.value })}
+                              className="w-full px-1.5 py-1 text-[11px] bg-transparent hover:bg-white focus:bg-white border border-transparent focus:border-blue-400 rounded font-medium text-slate-800 cursor-pointer"
+                            >
+                              {factories.map((f) => (
+                                <option key={f.id} value={f.name}>
+                                  {f.name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+
+                          {/* Status */}
+                          <td className="border-r border-slate-200 p-0.5">
+                            <select
+                              value={r.status}
+                              onChange={(e) => handleCellChange(r.id, { status: e.target.value })}
+                              className={`w-full px-1.5 py-1 text-[10px] font-bold rounded cursor-pointer border border-transparent focus:border-blue-400 ${
+                                r.status === "Delivered"
+                                  ? "bg-emerald-50 text-emerald-800"
+                                  : r.status === "In production"
+                                  ? "bg-amber-50 text-amber-800"
+                                  : r.status === "Approved"
+                                  ? "bg-blue-50 text-blue-800"
+                                  : "bg-slate-100 text-slate-700"
+                              }`}
+                            >
+                              <option value="Draft">Draft</option>
+                              <option value="Approved">Approved</option>
+                              <option value="In production">In Production</option>
+                              <option value="Delivered">Delivered</option>
+                            </select>
+                          </td>
+
+                          {/* Actions: Duplicate & Delete */}
+                          <td className="p-0.5 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                onClick={() => handleDuplicateRow(r.id)}
+                                className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition cursor-pointer"
+                                title="Duplicate Row"
+                              >
+                                ⎘
+                              </button>
+                              <button
+                                onClick={() => handleDeleteRow(r.id)}
+                                className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition cursor-pointer font-bold text-sm"
+                                title="Delete Row"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+            /* ============================================================== */
+            /* EXACT GOOGLE SHEET TABLE WITH ALL 22 COLUMNS                   */
+            /* ============================================================== */
             <div className="overflow-x-auto">
               <table className="w-full border-collapse text-xs font-sans">
                 {/* ROW 7: EXACT COLORED HEADERS */}
@@ -1530,10 +1878,122 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                 </tbody>
               </table>
             </div>
+            )}
 
             {/* ============================================================== */}
-            {/* EXACT FOOTER: BANK DETAILS, WORDS, TOTALS, AND TERMS (1501-1515) */}
+            {/* FOOTER: PROFESSIONAL SUMMARY BAR OR LEGACY BANK/TERMS FOOTER   */}
             {/* ============================================================== */}
+            {viewMode === "professional" ? (
+              <div className="border-t-2 border-slate-300 bg-white p-4 text-xs font-sans">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  {/* Left: Summary Notes, Words, and Bank details toggle */}
+                  <div className="space-y-2 max-w-xl">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total in Words:</span>
+                      <span className="font-serif italic font-bold text-slate-900 text-xs">
+                        &ldquo;{overallTotals.words}&rdquo;
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setShowBankDetails(!showBankDetails)}
+                        className="text-xs text-blue-700 hover:text-blue-900 font-semibold underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>🏦</span>
+                        <span>{showBankDetails ? "Hide Bank & Payment Terms" : "View Bank & Payment Terms"}</span>
+                        <span>{showBankDetails ? "▲" : "▼"}</span>
+                      </button>
+                    </div>
+
+                    {showBankDetails && (
+                      <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-[11px] text-slate-700 space-y-1 mt-2">
+                        <div className="font-bold text-slate-900">COMPANY NAME: GLASS CARE ENTERPRISES</div>
+                        <div>STATE BANK OF INDIA / IFSC: <strong className="text-slate-900">SBIN0002263</strong> • UPI: <strong className="text-blue-700">9945988552@upi</strong></div>
+                        <div>A/C NO: <strong className="text-slate-900">42443380892</strong> • Richards Town Bangalore 560005</div>
+                        <div className="text-[10px] text-slate-500 pt-1">
+                          Payment Terms: 70% advance with order • 20% on delivery • 10% on completion.
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right: Freight Input & Grand Totals Box */}
+                  <div className="flex flex-wrap items-center gap-4 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <div className="flex items-center gap-1 text-xs">
+                      <span className="text-slate-600 font-medium">Freight:</span>
+                      <span className="text-slate-400 font-mono">₹</span>
+                      <input
+                        type="number"
+                        value={freightCharge || ""}
+                        onChange={(e) => setFreightCharge(parseFloat(e.target.value) || 0)}
+                        placeholder="0.00"
+                        className="w-20 text-right px-2 py-1 text-xs bg-white border border-slate-200 rounded font-mono font-medium focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-500 uppercase block font-semibold">Sub Total</span>
+                      <span className="font-mono text-xs font-bold text-slate-800">
+                        {formatIndianCurrency(overallTotals.subTotal)}
+                      </span>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-500 uppercase block font-semibold">GST 18%</span>
+                      <span className="font-mono text-xs font-bold text-slate-800">
+                        {formatIndianCurrency(overallTotals.gst)}
+                      </span>
+                    </div>
+
+                    <div className="bg-emerald-600 text-white px-3.5 py-1.5 rounded-lg text-right shadow-xs">
+                      <span className="text-[10px] uppercase font-bold text-emerald-100 block">Grand Total</span>
+                      <span className="font-mono text-sm font-black">
+                        {formatIndianCurrency(overallTotals.displayTotal)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleAddRow}
+                        className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-lg text-xs font-bold shadow-2xs transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>+</span>
+                        <span>Add Row</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          const targetGrp = groupedQuotes.find((g) => g.clientName === activeCustomer) || groupedQuotes[0];
+                          if (targetGrp) handleCreateOfficialQuote(targetGrp);
+                        }}
+                        disabled={isGeneratingQuote}
+                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1 disabled:opacity-50 cursor-pointer"
+                      >
+                        <span>📄</span>
+                        <span>Save Quote</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          const waText = encodeURIComponent(
+                            `*GLASS CARE ENTERPRISES - QUOTATION*\nCustomer: ${activeCustomer}\nFlat: ${activeFlat}\nQuote No: ${activeQuoteNumber}\nTotal Amount: ${formatIndianCurrency(overallTotals.displayTotal)}\nSub Total: ${formatIndianCurrency(overallTotals.subTotal)}\nGST 18%: ${formatIndianCurrency(overallTotals.gst)}\n\nThank you for choosing Glass Care Enterprises!`
+                          );
+                          window.open(`https://wa.me/?text=${waText}`, "_blank");
+                        }}
+                        className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>💬</span>
+                        <span>WhatsApp</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+            /* ============================================================== */
+            /* EXACT FOOTER: BANK DETAILS, WORDS, TOTALS, AND TERMS (1501-1515) */
+            /* ============================================================== */
             <div className="border-t-2 border-slate-300 bg-[#fafafa] p-4 text-xs font-sans">
               <div className="grid grid-cols-12 gap-6">
                 {/* Left: Bank Details & Terms */}
@@ -1665,6 +2125,7 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                 </div>
               </div>
             </div>
+            )}
           </div>
         ) : (
           /* ============================================================== */
