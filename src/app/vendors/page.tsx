@@ -163,7 +163,7 @@ export default function VendorsPage() {
                 TAB 4
               </span>
               <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-                Vendor List &bull; Payment Dena Hai
+                Vendor List &bull; Balance Due
               </h1>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -206,7 +206,7 @@ export default function VendorsPage() {
           <div className="p-4 bg-white rounded-xl border border-rose-200 shadow-xs flex items-center justify-between bg-rose-50/30">
             <div>
               <p className="text-[11px] font-bold text-rose-700 uppercase tracking-wider">
-                Payment Dena Hai (Total Payable)
+                Total Balance Payable
               </p>
               <p className="text-2xl font-black text-rose-700 mt-1">
                 {summary ? formatIndianCurrency(summary.totalBalanceDue) : "₹0.00"}
@@ -276,9 +276,9 @@ export default function VendorsPage() {
                 <tr className="bg-slate-100 text-slate-700 border-b border-slate-200 font-bold uppercase tracking-wider text-[11px]">
                   <th className="py-3 px-4">Vendor Name</th>
                   <th className="py-3 px-4">Mobile &amp; WhatsApp</th>
-                  <th className="py-3 px-4">Kaam (Specialty)</th>
+                  <th className="py-3 px-4">Work / Specialty</th>
                   <th className="py-3 px-4">Rate</th>
-                  <th className="py-3 px-4 text-right">Payment Dena Hai</th>
+                  <th className="py-3 px-4 text-right">Balance Due</th>
                   <th className="py-3 px-4 text-center">Status</th>
                   <th className="py-3 px-4">Notes</th>
                   <th className="py-3 px-4 text-right">Action</th>
@@ -415,7 +415,7 @@ export default function VendorsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Kaam / Work Type</label>
+                  <label className="block font-bold text-slate-700 mb-1">Work Type / Specialty</label>
                   <input
                     type="text"
                     value={formWork}
@@ -438,7 +438,7 @@ export default function VendorsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-rose-700 mb-1">Payment Dena Hai (₹)</label>
+                  <label className="block font-bold text-rose-700 mb-1">Balance Due (₹)</label>
                   <input
                     type="number"
                     step="0.01"

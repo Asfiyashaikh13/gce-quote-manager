@@ -49,7 +49,7 @@ export function SevenTabsNav({ currentTab }: SevenTabsNavProps) {
       id: "vendors",
       tabNumber: "TAB 4",
       name: "Vendor List",
-      sub: "Payment Dena Hai • Rates",
+      sub: "Payables • Rates",
       href: "/vendors",
       color: "border-purple-500 text-purple-700",
       activeBg: "bg-purple-50/70 border-purple-600 text-purple-800",
@@ -60,7 +60,7 @@ export function SevenTabsNav({ currentTab }: SevenTabsNavProps) {
       id: "expenses",
       tabNumber: "TAB 5",
       name: "Purchase / Expense",
-      sub: "Cash / UPI • GST Bill Hai?",
+      sub: "Cash / UPI • Tax Invoice",
       href: "/expenses",
       color: "border-rose-500 text-rose-700",
       activeBg: "bg-rose-50/70 border-rose-600 text-rose-800",
@@ -71,7 +71,7 @@ export function SevenTabsNav({ currentTab }: SevenTabsNavProps) {
       id: "profit",
       tabNumber: "TAB 6",
       name: "Month Profit",
-      sub: "Partner 30% | Tum 70%",
+      sub: "Partner 30% | Owner 70%",
       href: "/profit",
       color: "border-teal-500 text-teal-700",
       activeBg: "bg-teal-50/70 border-teal-600 text-teal-800",
@@ -82,7 +82,7 @@ export function SevenTabsNav({ currentTab }: SevenTabsNavProps) {
       id: "inventory",
       tabNumber: "TAB 7",
       name: "Inventory / Stock",
-      sub: "Stock In • Use Hua • Baki Hai",
+      sub: "Stock In • Consumed • Available Balance",
       href: "/inventory",
       color: "border-indigo-500 text-indigo-700",
       activeBg: "bg-indigo-50/70 border-indigo-600 text-indigo-800",
@@ -129,7 +129,7 @@ export function SevenTabsNav({ currentTab }: SevenTabsNavProps) {
             Received
           </span>
           <span className="text-emerald-400 font-bold ml-1 hidden sm:inline">
-            &mdash; Red &amp; Green se pata chalega Boss!
+            &mdash; Real-Time Color Coded Status
           </span>
         </div>
       </div>
@@ -173,3 +173,4 @@ export function SevenTabsNav({ currentTab }: SevenTabsNavProps) {
     </div>
   );
 }
+

@@ -175,7 +175,7 @@ export default function ProfitPage() {
                 TAB 6
               </span>
               <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-                Monthly Profit &bull; Partner 30% / Tum 70% Split
+                Monthly Profit &bull; Partner 30% / Owner 70% Profit Split
               </h1>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -206,10 +206,10 @@ export default function ProfitPage() {
               <span className="text-xl">🌙</span>
               <div>
                 <span className="font-extrabold text-amber-300 text-xs uppercase tracking-wide">
-                  Daily Business Rule
+                  Daily Business Routine
                 </span>
                 <p className="text-sm font-bold text-white">
-                  Raat 9 baje &mdash; 10 min entry &mdash; sab set Boss!
+                  Daily evening 10-minute reconciliation &bull; 9:00 PM closing
                 </p>
               </div>
             </div>
@@ -219,10 +219,10 @@ export default function ProfitPage() {
                 Partner: VIEW ONLY
               </span>
               <span className="px-2.5 py-1 bg-teal-500 text-slate-950 rounded-lg font-mono font-black shadow-xs">
-                Tum: EDIT
+                Owner: EDIT
               </span>
               <span className="text-slate-300 hidden sm:inline text-[11px]">
-                &bull; Notification Partner ko jayega Boss
+                &bull; Automated Partner Email/WhatsApp Notification
               </span>
             </div>
           </div>
@@ -231,11 +231,11 @@ export default function ProfitPage() {
             <div>
               <span className="text-amber-400 font-bold">Auto Formula:</span>{" "}
               <code className="font-mono text-emerald-300 font-bold">
-                Profit = Sale &minus; Purchase &minus; Expense &rarr; Partner 30% Auto &bull; Tum 70% Auto
+                Profit = Sale &minus; Purchase &minus; Expense &rarr; Partner 30% Auto &bull; Owner 70% Auto
               </code>
             </div>
             <div className="text-right font-extrabold text-emerald-400">
-              Har Har Mahadev &mdash; Sheet Ready Boss
+              Real-Time Profit &amp; Distribution Ledger
             </div>
           </div>
         </div>
@@ -277,7 +277,7 @@ export default function ProfitPage() {
 
             <div className="p-4 bg-emerald-50/70 border border-emerald-300 rounded-xl shadow-xs">
               <p className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">
-                Tumhara Share (70%)
+                Owner Share (70%)
               </p>
               <p className="text-2xl font-black text-emerald-900 mt-1 font-mono">
                 {formatIndianCurrency(liveSummary.owner70Percent)}
@@ -306,7 +306,7 @@ export default function ProfitPage() {
                     Partner 30%
                   </th>
                   <th className="py-3 px-4 text-right text-emerald-900 bg-emerald-100/50">
-                    Tum 70%
+                    Owner 70%
                   </th>
                   <th className="py-3 px-4 text-center">Status</th>
                   <th className="py-3 px-4">Notes</th>
@@ -492,7 +492,7 @@ export default function ProfitPage() {
                     </p>
                   </div>
                   <div className="p-2 bg-white rounded border border-teal-200">
-                    <p className="text-[10px] text-emerald-700 font-semibold">Tum 70%</p>
+                    <p className="text-[10px] text-emerald-700 font-semibold">Owner 70%</p>
                     <p className="font-black font-mono text-emerald-900 text-sm mt-0.5">
                       {formatIndianCurrency(computedModalOwner)}
                     </p>

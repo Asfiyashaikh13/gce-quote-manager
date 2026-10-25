@@ -166,7 +166,7 @@ export default function InventoryPage() {
               </h1>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Stock In &minus; Use Hua = Baki Hai (Available Balance) &bull; Architectural glass sheets and aluminium inventory
+              Stock In &minus; Consumed = Available Balance &bull; Architectural glass sheets and aluminium inventory
             </p>
           </div>
 
@@ -219,7 +219,7 @@ export default function InventoryPage() {
           <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
             <div>
               <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                Total Use Hua (Consumed)
+                Total Consumed
               </p>
               <p className="text-2xl font-black text-amber-700 mt-1 font-mono">
                 {summary?.totalStockUsed.toLocaleString() || "0"}
@@ -233,7 +233,7 @@ export default function InventoryPage() {
           <div className="p-4 bg-emerald-50/70 border border-emerald-300 rounded-xl shadow-xs flex items-center justify-between">
             <div>
               <p className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">
-                Baki Hai (Floor Balance)
+                Available Balance
               </p>
               <p className="text-2xl font-black text-emerald-900 mt-1 font-mono">
                 {summary?.totalStockBalance.toLocaleString() || "0"}
@@ -282,9 +282,9 @@ export default function InventoryPage() {
                   <th className="py-3 px-4">Item Name / Specification</th>
                   <th className="py-3 px-4">Category</th>
                   <th className="py-3 px-4 text-right">Stock In</th>
-                  <th className="py-3 px-4 text-right">Use Hua</th>
+                  <th className="py-3 px-4 text-right">Consumed</th>
                   <th className="py-3 px-4 text-right text-emerald-800 bg-emerald-50/50">
-                    Baki Hai (Balance)
+                    Available Balance
                   </th>
                   <th className="py-3 px-4 text-center">Unit</th>
                   <th className="py-3 px-4 text-center">Status</th>
@@ -435,7 +435,7 @@ export default function InventoryPage() {
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-amber-800 mb-1">Use Hua (Used)</label>
+                  <label className="block font-bold text-amber-800 mb-1">Quantity Consumed</label>
                   <input
                     type="number"
                     step="0.01"
@@ -448,7 +448,7 @@ export default function InventoryPage() {
 
               <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between">
                 <span className="font-bold text-emerald-900 text-xs">
-                  Baki Hai (Auto Balance):
+                  Available Balance:
                 </span>
                 <span className="font-mono font-black text-emerald-950 text-base">
                   {computedModalBalance.toLocaleString()} {formUnit}

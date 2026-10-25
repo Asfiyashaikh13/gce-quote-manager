@@ -125,3 +125,4 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ success: false, error: "Failed to delete expense" }, { status: 500 });
   }
 }
+

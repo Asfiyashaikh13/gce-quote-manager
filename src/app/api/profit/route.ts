@@ -136,3 +136,4 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: "Failed to save profit record" }, { status: 500 });
   }
 }
+

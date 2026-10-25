@@ -257,14 +257,14 @@ export default function ExpensesPage() {
           <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
             <div>
               <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                GST Bill Hai?
+                GST Invoice Status
               </p>
               <div className="flex items-center gap-2 mt-1.5 font-bold text-xs">
                 <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full">
-                  {summary?.billedCount || 0} With Bill
+                  {summary?.billedCount || 0} Tax Invoice
                 </span>
                 <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">
-                  {summary?.unbilledCount || 0} No Bill
+                  {summary?.unbilledCount || 0} Slip / Voucher
                 </span>
               </div>
             </div>
@@ -303,15 +303,15 @@ export default function ExpensesPage() {
             </div>
 
             <div className="flex items-center gap-1.5">
-              <span className="text-slate-500 font-semibold">Bill Hai?:</span>
+              <span className="text-slate-500 font-semibold">Invoice:</span>
               <select
                 value={billFilter}
                 onChange={(e) => setBillFilter(e.target.value)}
                 className="px-2 py-1 border border-slate-300 rounded bg-slate-50 font-semibold text-slate-700 focus:outline-none"
               >
-                <option value="ALL">All</option>
-                <option value="YES">Yes (With Bill)</option>
-                <option value="NO">No (Kaccha / Slip)</option>
+                <option value="ALL">All Records</option>
+                <option value="YES">Tax Invoice (With GST)</option>
+                <option value="NO">Voucher / Slip</option>
               </select>
             </div>
           </div>
@@ -328,7 +328,7 @@ export default function ExpensesPage() {
                   <th className="py-3 px-4 text-right">Amount</th>
                   <th className="py-3 px-4">Vendor</th>
                   <th className="py-3 px-4 text-center">Cash / UPI</th>
-                  <th className="py-3 px-4 text-center">GST Bill Hai?</th>
+                  <th className="py-3 px-4 text-center">Tax Invoice?</th>
                   <th className="py-3 px-4 text-center">Status</th>
                   <th className="py-3 px-4">Notes</th>
                   <th className="py-3 px-4 text-right">Action</th>
@@ -518,7 +518,7 @@ export default function ExpensesPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">GST Bill Hai?</label>
+                  <label className="block font-bold text-slate-700 mb-1">Tax Invoice Available?</label>
                   <div className="flex items-center gap-4 mt-2">
                     <label className="flex items-center gap-1.5 cursor-pointer font-bold text-slate-700">
                       <input
@@ -526,7 +526,7 @@ export default function ExpensesPage() {
                         checked={formHasBill === true}
                         onChange={() => setFormHasBill(true)}
                       />
-                      <span>Yes (Tax Bill)</span>
+                      <span>Yes (Tax Invoice)</span>
                     </label>
                     <label className="flex items-center gap-1.5 cursor-pointer font-bold text-slate-700">
                       <input
@@ -534,7 +534,7 @@ export default function ExpensesPage() {
                         checked={formHasBill === false}
                         onChange={() => setFormHasBill(false)}
                       />
-                      <span>No (Kaccha)</span>
+                      <span>No (Slip / Voucher)</span>
                     </label>
                   </div>
                 </div>

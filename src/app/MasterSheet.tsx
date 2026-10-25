@@ -1909,7 +1909,7 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
           <Link
             href="/vendors"
             className="px-2 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
-            title="Tab 4: Vendor List & Payment Dena Hai"
+            title="Tab 4: Vendor List & Payables"
           >
             Tab 4: Vendors
           </Link>
@@ -1923,7 +1923,7 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
           <Link
             href="/profit"
             className="px-2 py-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded transition font-medium"
-            title="Tab 6: Monthly Profit (Partner 30% / Tum 70%)"
+            title="Tab 6: Monthly Profit (Partner 30% / Owner 70%)"
           >
             Tab 6: Profit 30/70
           </Link>

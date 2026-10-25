@@ -109,3 +109,4 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ success: false, error: "Failed to delete vendor" }, { status: 500 });
   }
 }
+
