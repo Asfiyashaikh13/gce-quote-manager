@@ -1173,8 +1173,8 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                 <thead>
                   <tr className="border-b-2 border-slate-400 text-slate-800 font-bold text-[11px] select-none text-center">
                     {/* Row Number Header */}
-                    <th className="w-12 bg-slate-200 border-r border-slate-300 py-1.5 text-center text-slate-500 font-mono text-[10px]">
-                      7
+                    <th className="w-12 bg-slate-200 border-r border-slate-300 py-1.5 text-center text-slate-700 font-mono text-[11px] font-bold">
+                      #
                     </th>
 
                     {/* Col A: Date */}
@@ -1301,7 +1301,7 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                 {/* SPREADSHEET DATA ROWS */}
                 <tbody className="divide-y divide-slate-200">
                   {filteredRows.map((r, idx) => {
-                    const rowNumber = 22 + idx; // Matches starting row 22 in user screenshot!
+                    const rowNumber = idx + 1; // Starts from 1 for every sheet as requested!
                     const isSelected = selectedRowId === r.id;
 
                     return (
