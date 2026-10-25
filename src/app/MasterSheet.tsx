@@ -749,19 +749,6 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                   Live Sync
                 </span>
               </div>
-
-              {/* Standard Menu Bar */}
-              <div className="flex items-center gap-2 text-xs text-slate-600 mt-1">
-                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">File</span>
-                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">Edit</span>
-                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">View</span>
-                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">Insert</span>
-                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">Format</span>
-                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">Data</span>
-                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">Tools</span>
-                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">Extensions</span>
-                <span className="hover:bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer">Help</span>
-              </div>
             </div>
           </div>
 
