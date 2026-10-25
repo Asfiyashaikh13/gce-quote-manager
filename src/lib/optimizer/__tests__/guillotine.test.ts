@@ -150,3 +150,4 @@ describe("Guillotine Sheet Cutting Optimizer", () => {
     expect(svg).toContain("Glass 1");
   });
 });
+

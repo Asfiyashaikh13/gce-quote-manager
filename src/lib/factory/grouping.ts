@@ -112,3 +112,4 @@ export function formatFactoryWhatsAppText(factory: FactoryGroup): string {
   text += `*Glass Care Enterprises - Cutting Indent*`;
   return text;
 }
+

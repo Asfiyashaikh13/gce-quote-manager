@@ -27,3 +27,4 @@ export interface FactoryGroup {
   totalPieces: number;
   totalSqft: number;
 }
+

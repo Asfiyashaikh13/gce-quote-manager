@@ -1,6 +1,8 @@
 import { calculateQuote } from "../calc";
 import { GroupedQuote, MasterSheetRowData } from "./types";
 
+export type GroupedCustomerQuote = GroupedQuote;
+
 export function makeGroupKey(client: string, flat: string, building: string): string {
   const c = (client || "").trim().toLowerCase();
   const f = (flat || "").trim().toLowerCase();

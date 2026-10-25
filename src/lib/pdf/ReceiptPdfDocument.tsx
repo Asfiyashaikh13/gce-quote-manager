@@ -303,3 +303,4 @@ export function ReceiptPdfDocument({ receipt }: { receipt: ReceiptData }) {
     </Document>
   );
 }
+

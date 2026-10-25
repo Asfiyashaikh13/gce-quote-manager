@@ -125,3 +125,17 @@ This document outlines the key assumptions and design decisions made for Phase 1
 - **System Backups**:
   - `npm run backup` creates instant byte-for-byte SQLite snapshots in `./backups/`.
   - JSON backup/restore provides portable multi-table snapshots.
+
+---
+
+## 7. Multi-Customer Google Sheet Automation (`GCE Meas_42` / `_Notebook Size's @26L`)
+
+- **Full Ingestion of 22-Column Structure**:
+  - Automatically identifies whether pasted or uploaded data follows the standard 12-column layout or the full 22-column Google Sheet structure (`Date`, `Flat No`, `Client Name`, `Apartment/Building`, `Product Category`, `Item Name`, `Frame H`, `Frame W`, `Round H`, `Round W`, `Qty`, `R.ft`, `Size Sqft`, `Rate`, `State`, `GST%`, `GST Amt`, `Net Amount`, `Factory Belongs`, `Status/Installation`, `Glass H -7mm`, `Glass W -7mm`).
+  - Auto-normalizes catalog items (`Al. Shutter's`, `8mm plain Glass`, `Mirror polished 5mm flat glass`) and matches predefined unit rates.
+- **Autonomous Multi-Customer Separation**:
+  - 100s or 1,000s of measurement rows for dozens of distinct customers are automatically isolated and partitioned by composite key `(Client + Flat + Building)`.
+  - Individual customer filter dropdown on Master Sheet renders an authentic Google Sheet top banner with live totals and single-click quote generation.
+- **Batch Quotation Generation**:
+  - `⚡ Batch Generate All Quotes` creates numbered official quotations (`QT-DDMMYY-NN`) for every distinct customer found in the spreadsheet in a single automated step.
+  - Generates ready-to-print A4 PDF quotations and pre-filled WhatsApp dispatch links.

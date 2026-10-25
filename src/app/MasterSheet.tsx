@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Link from "next/link";
+import * as XLSX from "xlsx";
 import { MasterSheetRowData } from "@/lib/sheet/types";
-import { groupRowsByCustomer } from "@/lib/sheet/grouping";
+import { groupRowsByCustomer, GroupedCustomerQuote } from "@/lib/sheet/grouping";
 import { calculateQuoteItem, formatIndianCurrency } from "@/lib/calc";
 
 interface ProductOption {
@@ -36,9 +37,21 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterCustomer, setFilterCustomer] = useState("ALL");
   const [filterFactory, setFilterFactory] = useState("ALL");
   const [filterStatus, setFilterStatus] = useState("ALL");
   const [filterState, setFilterState] = useState("ALL");
+
+  // Import Modal & Toast
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [isGeneratingQuote, setIsGeneratingQuote] = useState(false);
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 4000);
+  };
 
   // Selection for fill down & copy
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
@@ -236,42 +249,106 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
     updateRowsWithHistory(nextRows);
   }, [selectedRowId, rows, recalculateRow, updateRowsWithHistory]);
 
-  // Paste from Excel / Google Sheets (TSV parser)
-  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
-    const clipData = e.clipboardData.getData("text");
-    if (!clipData || (!clipData.includes("\t") && !clipData.includes("\n"))) {
-      return;
-    }
+  // Helper to parse raw rows from Google Sheets or standard paste
+  const parseInputRows = useCallback((rawText: string): MasterSheetRowData[] => {
+    const lines = rawText.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    if (lines.length === 0) return [];
 
-    e.preventDefault();
-    const lines = clipData.split(/\r?\n/).filter((l) => l.trim().length > 0);
-    if (lines.length === 0) return;
-
-    const newRows: MasterSheetRowData[] = [];
+    const parsed: MasterSheetRowData[] = [];
 
     for (let i = 0; i < lines.length; i++) {
-      const cols = lines[i].split("\t").map((c) => c.trim());
-      const client = cols[0] || "Client";
-      const flat = cols[1] || "";
-      const building = cols[2] || "";
-      const state = cols[3] || "Karnataka";
-      const factory = cols[4] || "Veera Glass";
-      const status = cols[5] || "Draft";
-      let desc = cols[6] || "Al Shutters 565";
-      const height = parseFloat(cols[7]) || 1000;
-      const width = parseFloat(cols[8]) || 500;
-      const qty = parseInt(cols[9], 10) || 1;
-      let rate = parseFloat(cols[10]) || 565;
-      const notes = cols[11] || "";
+      const line = lines[i];
+      // Split by tab (if TSV) or comma (if CSV)
+      const cols = line.includes("\t")
+        ? line.split("\t").map((c) => c.trim().replace(/^["']|["']$/g, ""))
+        : line.split(",").map((c) => c.trim().replace(/^["']|["']$/g, ""));
 
-      const matchedProd = products.find((p) => p.name.toLowerCase() === desc.toLowerCase() || p.code === desc);
+      // Skip header lines
+      const lowerRow = cols.join(" ").toLowerCase();
+      if (
+        lowerRow.includes("appt/building") ||
+        lowerRow.includes("round of h") ||
+        lowerRow.includes("product category") ||
+        (lowerRow.includes("date") && lowerRow.includes("client"))
+      ) {
+        continue;
+      }
+
+      // Check if this matches Google Sheet "_Notebook Size's @26L" format
+      // Typically: Date [0], Flat [1], Client [2], Building [3], Category [4], Item [5], Frame H [6], Frame W [7], Round H [8], Round W [9], Qty [10] ... Rate [13] ... Factory [18]
+      const hasDateAt0 = /\d{1,4}[-/.]\d{1,2}[-/.]\d{2,4}/.test(cols[0]);
+      const hasDimAt6and7 = !isNaN(parseFloat(cols[6])) && !isNaN(parseFloat(cols[7]));
+      const isGoogleSheetLayout = cols.length >= 10 && (hasDateAt0 || hasDimAt6and7);
+
+      let client = "Client";
+      let flat = "";
+      let building = "";
+      let state = "Karnataka";
+      let factory = "Veera Glass";
+      let status = "Draft";
+      let desc = "Al Shutters 565";
+      let height = 1000;
+      let width = 500;
+      let qty = 1;
+      let rate = 565;
+      let notes = "";
+
+      if (isGoogleSheetLayout) {
+        flat = cols[1] || "";
+        client = cols[2] || "Customer";
+        building = cols[3] || "";
+        desc = cols[5] || cols[4] || "Al Shutters 565";
+        height = parseFloat(cols[6]) || 1000;
+        width = parseFloat(cols[7]) || 500;
+        qty = parseInt(cols[10], 10) || 1;
+        rate = parseFloat(cols[13]) || 0;
+        state = cols[14] || "Karnataka";
+        factory = cols[18] || "Veera Glass";
+        status = cols[19] || "Draft";
+        notes = cols[22] || cols[23] || "";
+      } else {
+        client = cols[0] || "Client";
+        flat = cols[1] || "";
+        building = cols[2] || "";
+        state = cols[3] || "Karnataka";
+        factory = cols[4] || "Veera Glass";
+        status = cols[5] || "Draft";
+        desc = cols[6] || "Al Shutters 565";
+        height = parseFloat(cols[7]) || 1000;
+        width = parseFloat(cols[8]) || 500;
+        qty = parseInt(cols[9], 10) || 1;
+        rate = parseFloat(cols[10]) || 0;
+        notes = cols[11] || "";
+      }
+
+      // Normalization of item names and rates based on catalog
+      const matchedProd = products.find(
+        (p) => p.name.toLowerCase() === desc.toLowerCase() || p.code?.toLowerCase() === desc.toLowerCase()
+      );
+
       if (matchedProd) {
         desc = matchedProd.name;
-        if (!cols[10]) rate = matchedProd.rate;
+        if (!rate || rate === 0) rate = matchedProd.rate;
+      } else {
+        // Smart catalog heuristics matching GCE pricing
+        const lowerDesc = desc.toLowerCase();
+        if (rate === 430 || lowerDesc.includes("430")) {
+          desc = "Al Shutters 430";
+          rate = 430;
+        } else if (rate === 135 || lowerDesc.includes("plain") || lowerDesc.includes("8mm")) {
+          desc = "8mm plain glass";
+          rate = 135;
+        } else if (rate === 145 || lowerDesc.includes("mirror") || lowerDesc.includes("5mm")) {
+          desc = "5mm mirror polished";
+          rate = 145;
+        } else if (!rate || rate === 0) {
+          rate = 565;
+          desc = "Al Shutters 565";
+        }
       }
 
       const row = recalculateRow({
-        id: `paste-${Date.now()}-${i}`,
+        id: `row-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 4)}`,
         rowOrder: rows.length + i + 1,
         clientName: client,
         flat,
@@ -288,10 +365,57 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
         notes,
       });
 
-      newRows.push(row);
+      parsed.push(row);
     }
 
-    updateRowsWithHistory([...rows, ...newRows]);
+    return parsed;
+  }, [products, recalculateRow, rows.length]);
+
+  // Paste from Excel / Google Sheets
+  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    const clipData = e.clipboardData.getData("text");
+    if (!clipData || (!clipData.includes("\t") && !clipData.includes("\n"))) {
+      return;
+    }
+
+    e.preventDefault();
+    const newRows = parseInputRows(clipData);
+    if (newRows.length > 0) {
+      updateRowsWithHistory([...rows, ...newRows]);
+      const clientsSet = new Set(newRows.map((r) => r.clientName));
+      showToast(`Imported ${newRows.length} rows for ${clientsSet.size} customer(s)!`);
+    }
+  };
+
+  // File Upload (.xlsx, .csv)
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: "binary" });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const csvData = XLSX.utils.sheet_to_csv(ws);
+        const imported = parseInputRows(csvData);
+        if (imported.length > 0) {
+          updateRowsWithHistory([...rows, ...imported]);
+          const clientsSet = new Set(imported.map((r) => r.clientName));
+          showToast(`Successfully imported ${imported.length} rows for ${clientsSet.size} customer(s)!`);
+          setImportModalOpen(false);
+        } else {
+          showToast("No valid measurement rows found in file");
+        }
+      } catch (err) {
+        console.error(err);
+        showToast("Failed to parse Excel file");
+      }
+    };
+    reader.readAsBinaryString(file);
+    e.target.value = "";
   };
 
   // Keyboard shortcuts (Ctrl+Z, Ctrl+Y, Ctrl+D)
@@ -318,9 +442,18 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleUndo, handleRedo, handleFillDown]);
 
+  // Unique customer names for filter
+  const customerList = useMemo(() => {
+    const list = Array.from(new Set(rows.map((r) => r.clientName).filter(Boolean)));
+    return list.sort();
+  }, [rows]);
+
   // Filtered rows
   const filteredRows = useMemo(() => {
     return rows.filter((r) => {
+      if (filterCustomer !== "ALL" && r.clientName !== filterCustomer) {
+        return false;
+      }
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matches =
@@ -337,7 +470,7 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
 
       return true;
     });
-  }, [rows, searchQuery, filterFactory, filterStatus, filterState]);
+  }, [rows, filterCustomer, searchQuery, filterFactory, filterStatus, filterState]);
 
   // Auto-grouped quotes (Client + Flat + Building)
   const groupedQuotes = useMemo(() => {
@@ -346,11 +479,83 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
 
   // Overall totals across current visible rows
   const overallTotals = useMemo(() => {
-    const net = rows.reduce((acc, r) => acc + r.netAmount, 0);
-    const gst = rows.reduce((acc, r) => acc + r.gstAmount, 0);
-    const total = rows.reduce((acc, r) => acc + r.totalAmount, 0);
-    return { net, gst, total, count: rows.length };
-  }, [rows]);
+    const net = filteredRows.reduce((acc, r) => acc + r.netAmount, 0);
+    const gst = filteredRows.reduce((acc, r) => acc + r.gstAmount, 0);
+    const total = filteredRows.reduce((acc, r) => acc + r.totalAmount, 0);
+    return { net, gst, total, count: filteredRows.length };
+  }, [filteredRows]);
+
+  // Create official quote from auto-grouped customer
+  const handleCreateOfficialQuote = async (g: GroupedCustomerQuote) => {
+    setIsGeneratingQuote(true);
+    try {
+      const res = await fetch("/api/quotes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerName: g.clientName,
+          customerFlat: g.flat,
+          customerBuilding: g.building,
+          destinationState: g.state,
+          items: g.rows.map((r: MasterSheetRowData) => ({
+            description: r.description,
+            frameHeightMm: r.frameHeightMm,
+            frameWidthMm: r.frameWidthMm,
+            quantity: r.quantity,
+            rate: r.rate,
+          })),
+        }),
+      });
+
+      const json = await res.json();
+      if (json.quote || json.success) {
+        const qNumber = json.quote?.quoteNumber || "New Quote";
+        showToast(`Official Quote created: ${qNumber} for ${g.clientName}!`);
+      } else {
+        showToast(json.error || "Failed to create quote");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Error creating quote");
+    } finally {
+      setIsGeneratingQuote(false);
+    }
+  };
+
+  // Batch generate quotes for all customers
+  const handleBatchGenerateQuotes = async () => {
+    if (groupedQuotes.length === 0) return;
+    setIsGeneratingQuote(true);
+    let createdCount = 0;
+    try {
+      for (const g of groupedQuotes) {
+        await fetch("/api/quotes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            customerName: g.clientName,
+            customerFlat: g.flat,
+            customerBuilding: g.building,
+            destinationState: g.state,
+            items: g.rows.map((r: MasterSheetRowData) => ({
+              description: r.description,
+              frameHeightMm: r.frameHeightMm,
+              frameWidthMm: r.frameWidthMm,
+              quantity: r.quantity,
+              rate: r.rate,
+            })),
+          }),
+        });
+        createdCount++;
+      }
+      showToast(`Generated ${createdCount} official quotes for all customers! View in Quotes tab.`);
+    } catch (err) {
+      console.error(err);
+      showToast("Error batch generating quotes");
+    } finally {
+      setIsGeneratingQuote(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 pb-20" onPaste={handlePaste}>
@@ -468,6 +673,19 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                 {/* Filters */}
                 <div className="flex items-center gap-2">
                   <select
+                    value={filterCustomer}
+                    onChange={(e) => setFilterCustomer(e.target.value)}
+                    className="px-2.5 py-1.5 text-xs border border-blue-300 rounded-lg bg-blue-50/60 font-bold text-blue-900 focus:outline-none"
+                  >
+                    <option value="ALL">All Customers ({customerList.length})</option>
+                    {customerList.map((c) => (
+                      <option key={c} value={c}>
+                        👤 {c}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
                     value={filterFactory}
                     onChange={(e) => setFilterFactory(e.target.value)}
                     className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg bg-white"
@@ -531,6 +749,14 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                   ↓ Fill Down (Ctrl+D)
                 </button>
                 <button
+                  onClick={() => setImportModalOpen(true)}
+                  className="px-2.5 py-1 text-xs font-semibold border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 rounded-lg transition flex items-center gap-1"
+                  title="Import rows from Google Sheets or Excel"
+                >
+                  <span>📥</span>
+                  <span>Import Sheet</span>
+                </button>
+                <button
                   onClick={handleAddRow}
                   className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition"
                 >
@@ -538,6 +764,73 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                 </button>
               </div>
             </div>
+
+            {/* Active Customer Quotation Header (matching Google Sheets layout) */}
+            {filterCustomer !== "ALL" && (
+              <div className="bg-white rounded-xl border border-blue-200 p-4 mb-3 shadow-xs bg-gradient-to-r from-blue-50/50 via-white to-indigo-50/40">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-xl shadow-sm">
+                      GCE
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 bg-blue-100 text-blue-800 rounded">
+                          Active Customer Quote View
+                        </span>
+                        <span className="text-xs text-slate-400 font-medium">{filteredRows.length} Line Items</span>
+                      </div>
+                      <h2 className="text-lg font-black text-slate-900 mt-0.5">{filterCustomer}</h2>
+                      <p className="text-xs text-slate-500">
+                        Site: {filteredRows[0]?.building || "Main Site"} {filteredRows[0]?.flat ? `• Flat ${filteredRows[0]?.flat}` : ""} • {filteredRows[0]?.state || "Karnataka"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center bg-white p-2 rounded-xl border border-slate-200 shadow-2xs text-xs">
+                      <div className="text-right px-3 border-r border-slate-100">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase block">Sub Total</span>
+                        <span className="font-mono text-xs font-bold text-slate-800">{formatIndianCurrency(overallTotals.net)}</span>
+                      </div>
+                      <div className="text-right px-3 border-r border-slate-100">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase block">GST 18%</span>
+                        <span className="font-mono text-xs font-bold text-slate-800">{formatIndianCurrency(overallTotals.gst)}</span>
+                      </div>
+                      <div className="text-right px-3">
+                        <span className="text-[10px] font-extrabold text-blue-600 uppercase block">Grand Total</span>
+                        <span className="font-mono text-base font-black text-blue-900">{formatIndianCurrency(overallTotals.total)}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        const grp = groupedQuotes.find((g) => g.clientName === filterCustomer);
+                        if (grp) handleCreateOfficialQuote(grp);
+                      }}
+                      disabled={isGeneratingQuote}
+                      className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      <span>📄</span>
+                      <span>Save as Official Quote</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const waText = encodeURIComponent(
+                          `*GLASS CARE ENTERPRISES - QUOTATION*\nCustomer: ${filterCustomer}\nFlat: ${filteredRows[0]?.flat || '-'}\nTotal Amount: ${formatIndianCurrency(overallTotals.total)}\nSub Total: ${formatIndianCurrency(overallTotals.net)}\nGST (18%): ${formatIndianCurrency(overallTotals.gst)}\n\nThank you for choosing Glass Care Enterprises!`
+                        );
+                        window.open(`https://wa.me/?text=${waText}`, "_blank");
+                      }}
+                      className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold border border-emerald-200 transition flex items-center gap-1"
+                    >
+                      <span>💬</span>
+                      <span>WhatsApp</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Excel-like Table View (Desktop & Tablet) */}
             <div className="hidden md:block bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
@@ -874,16 +1167,27 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
         ) : (
           /* Quotes Tab: Auto-grouped by Client + Flat + Building */
           <div className="space-y-4">
-            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs flex items-center justify-between">
+            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h2 className="text-base font-bold text-slate-900">Quotes Auto-Grouped by Customer</h2>
                 <p className="text-xs text-slate-500">
                   Rows from the master sheet are automatically grouped into clean quotes by Client + Flat + Building
                 </p>
               </div>
-              <span className="px-3 py-1 bg-blue-50 text-blue-700 font-semibold rounded-lg text-xs border border-blue-200">
-                {groupedQuotes.length} Distinct Quotes Generated
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1.5 bg-blue-50 text-blue-700 font-semibold rounded-lg text-xs border border-blue-200">
+                  {groupedQuotes.length} Distinct Quotes Detected
+                </span>
+                <button
+                  onClick={handleBatchGenerateQuotes}
+                  disabled={isGeneratingQuote || groupedQuotes.length === 0}
+                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1.5 disabled:opacity-50"
+                  title="Generate official quotes for all customers in one click"
+                >
+                  <span>⚡</span>
+                  <span>{isGeneratingQuote ? "Generating Quotes..." : "Batch Generate All Quotes"}</span>
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4">
@@ -904,7 +1208,7 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-6">
+                    <div className="flex flex-wrap items-center gap-4">
                       <div className="text-right">
                         <span className="text-[11px] text-slate-400 uppercase tracking-wider block">Sub Total</span>
                         <span className="font-mono text-xs font-semibold text-slate-800">
@@ -922,6 +1226,31 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                         <span className="font-mono text-base font-extrabold text-blue-900">
                           {formatIndianCurrency(q.displayTotal)}
                         </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 pl-2 border-l border-slate-100">
+                        <button
+                          onClick={() => handleCreateOfficialQuote(q)}
+                          disabled={isGeneratingQuote}
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-xs transition disabled:opacity-50 flex items-center gap-1"
+                          title="Save as an official quote in the Quotes registry"
+                        >
+                          <span>📄</span>
+                          <span>Save Quote</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            const waText = encodeURIComponent(
+                              `*GLASS CARE ENTERPRISES - QUOTATION*\nCustomer: ${q.clientName}\nFlat: ${q.flat || '-'}\nTotal Amount: ${formatIndianCurrency(q.displayTotal)}\nSub Total: ${formatIndianCurrency(q.subTotal)}\nGST: ${formatIndianCurrency(q.gstTotal)}\n\nThank you for choosing Glass Care Enterprises!`
+                            );
+                            window.open(`https://wa.me/?text=${waText}`, "_blank");
+                          }}
+                          className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-medium rounded-lg transition flex items-center gap-1"
+                          title="Share summary via WhatsApp"
+                        >
+                          <span>💬</span>
+                          <span>WhatsApp</span>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -971,6 +1300,118 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
           </div>
         )}
       </main>
+
+      {/* Floating Toast Notification */}
+      {toastMsg && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 border border-slate-700 animate-bounce">
+          <span className="text-emerald-400 font-bold text-base">✓</span>
+          <span className="text-xs font-medium">{toastMsg}</span>
+        </div>
+      )}
+
+      {/* Import Modal */}
+      {importModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">📥</span>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Import Measurement Sheet</h3>
+                  <p className="text-xs text-slate-500">
+                    Paste from Google Sheets (e.g. &ldquo;_Notebook Size&apos;s @26L&rdquo;) or upload an Excel file
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setImportModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Option 1: Paste rows from Google Sheets / Excel (tab or comma separated)
+                </label>
+                <textarea
+                  value={importText}
+                  onChange={(e) => setImportText(e.target.value)}
+                  placeholder="Paste multi-row data here... Column structure A to V from your Google Sheet is automatically detected!"
+                  rows={6}
+                  className="w-full text-xs font-mono p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+                {importText.trim() && (
+                  <div className="mt-1 text-[11px] text-blue-600 font-medium">
+                    Preview: {importText.trim().split("\n").length} raw row(s) ready to parse
+                  </div>
+                )}
+              </div>
+
+              <div className="relative flex py-1 items-center">
+                <div className="flex-grow border-t border-slate-200"></div>
+                <span className="flex-shrink mx-4 text-xs uppercase font-bold text-slate-400">OR</span>
+                <div className="flex-grow border-t border-slate-200"></div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Option 2: Upload Excel File (.xlsx, .xls, .csv)
+                </label>
+                <input
+                  type="file"
+                  accept=".xlsx, .xls, .csv"
+                  onChange={handleFileUpload}
+                  className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                />
+              </div>
+
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-[11px] text-slate-600">
+                <p className="font-semibold text-slate-800 mb-1">💡 Smart Google Sheet Auto-Detection:</p>
+                <ul className="list-disc list-inside space-y-0.5">
+                  <li>Detects standard 22-column GCE layout (Date, Flat, Client, Building, Category, Item, Frame H, Frame W, Qty, Rate, Factory...)</li>
+                  <li>Automatically splits and groups rows by each customer (Client + Flat + Building)</li>
+                  <li>Auto-calculates Glass Cut (-7mm), 76.2mm Rounding, Sqft, and 18% GST (9%+9%)</li>
+                </ul>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setImportModalOpen(false)}
+                  className="px-4 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!importText.trim()) {
+                      showToast("Please paste rows first or choose a file");
+                      return;
+                    }
+                    const parsed = parseInputRows(importText);
+                    if (parsed.length > 0) {
+                      updateRowsWithHistory([...rows, ...parsed]);
+                      const clientsSet = new Set(parsed.map((r) => r.clientName));
+                      showToast(`Imported ${parsed.length} rows for ${clientsSet.size} customer(s)!`);
+                      setImportText("");
+                      setImportModalOpen(false);
+                    } else {
+                      showToast("No valid rows could be parsed");
+                    }
+                  }}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition"
+                >
+                  Import & Auto-Group Rows
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

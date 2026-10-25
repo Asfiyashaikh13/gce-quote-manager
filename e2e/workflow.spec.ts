@@ -111,3 +111,4 @@ test.describe("GCE Quote Manager End-to-End Suite", () => {
     await expect(page.locator("text=Quotation Status Funnel")).toBeVisible();
   });
 });
+
