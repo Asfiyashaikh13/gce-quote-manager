@@ -12,7 +12,7 @@ if (process.env.VERCEL) {
       path.resolve(process.cwd(), ".next", "server", "prisma", "dev.db"),
     ];
     for (const src of candidates) {
-      if (fs.existsSync(src)) {
+      if (fs.existsSync(/*turbopackIgnore: true*/ src)) {
         try {
           fs.copyFileSync(src, tmpDbPath);
           break;
