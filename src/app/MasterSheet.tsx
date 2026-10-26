@@ -96,6 +96,8 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
 
   // Selection for fill down & copy
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  // Multi-row selection for batch delete
+  const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -265,6 +267,14 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
       return;
     }
     const filtered = rows.filter((r) => r.id !== id);
+    setSelectedRowIds((prev) => {
+      if (prev.has(id)) {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      }
+      return prev;
+    });
     updateRowsWithHistory(filtered);
   };
 
@@ -653,6 +663,119 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
     });
   }, [rows, filterCustomer, searchQuery, filterFactory, filterStatus, filterState]);
 
+  // Selection states for visible filtered rows
+  const isAllSelected = useMemo(() => {
+    return filteredRows.length > 0 && filteredRows.every((r) => selectedRowIds.has(r.id));
+  }, [filteredRows, selectedRowIds]);
+
+  const isSomeSelected = useMemo(() => {
+    return filteredRows.some((r) => selectedRowIds.has(r.id)) && !isAllSelected;
+  }, [filteredRows, selectedRowIds, isAllSelected]);
+
+  const handleToggleSelectAll = useCallback(() => {
+    if (isAllSelected) {
+      setSelectedRowIds((prev) => {
+        const next = new Set(prev);
+        filteredRows.forEach((r) => next.delete(r.id));
+        return next;
+      });
+    } else {
+      setSelectedRowIds((prev) => {
+        const next = new Set(prev);
+        filteredRows.forEach((r) => next.add(r.id));
+        return next;
+      });
+    }
+  }, [isAllSelected, filteredRows]);
+
+  const handleToggleSelectRow = useCallback((id: string) => {
+    setSelectedRowIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  // Delete Selected Rows (Batch delete)
+  const handleDeleteSelected = () => {
+    if (selectedRowIds.size === 0) return;
+    const count = selectedRowIds.size;
+    if (typeof window !== "undefined" && !window.confirm(`Are you sure you want to delete ${count} selected row(s)? (You can undo with Ctrl+Z)`)) {
+      return;
+    }
+    const nextRows = rows.filter((r) => !selectedRowIds.has(r.id));
+    if (nextRows.length === 0) {
+      const defaultRow = recalculateRow({
+        id: `row-${Date.now()}-1`,
+        rowOrder: 1,
+        clientName: filterCustomer !== "ALL" ? filterCustomer : "Mr. Fayaz",
+        flat: "Flat 27",
+        building: "MAIN BUILDING",
+        category: "Aluminium Shutters",
+        description: "Al Shutters 565",
+        frameHeightMm: 1000,
+        frameWidthMm: 500,
+        quantity: 1,
+        rate: 565,
+        factory: "Veera Glass",
+        status: "Draft",
+      });
+      updateRowsWithHistory([defaultRow]);
+      setSelectedRowId(defaultRow.id);
+    } else {
+      updateRowsWithHistory(nextRows);
+    }
+    setSelectedRowIds(new Set());
+    showToast(`Deleted ${count} selected row(s)`);
+  };
+
+  // Clear All Rows
+  const handleClearAll = () => {
+    const isFiltered = filterCustomer !== "ALL" || searchQuery.trim() !== "" || filterFactory !== "ALL" || filterStatus !== "ALL" || filterState !== "ALL";
+    const targetCount = isFiltered ? filteredRows.length : rows.length;
+    const msg = isFiltered
+      ? `Are you sure you want to clear all ${targetCount} displayed rows? (You can undo with Ctrl+Z)`
+      : `Are you sure you want to clear all ${targetCount} rows in the sheet? This will reset the sheet to 1 clean row. (You can undo with Ctrl+Z)`;
+
+    if (typeof window !== "undefined" && !window.confirm(msg)) {
+      return;
+    }
+
+    let nextRows: MasterSheetRowData[] = [];
+    if (isFiltered) {
+      const targetIds = new Set(filteredRows.map((r) => r.id));
+      nextRows = rows.filter((r) => !targetIds.has(r.id));
+    }
+
+    if (nextRows.length === 0) {
+      const defaultRow = recalculateRow({
+        id: `row-${Date.now()}-1`,
+        rowOrder: 1,
+        clientName: filterCustomer !== "ALL" ? filterCustomer : "Mr. Fayaz",
+        flat: "Flat 27",
+        building: "MAIN BUILDING",
+        category: "Aluminium Shutters",
+        description: "Al Shutters 565",
+        frameHeightMm: 1000,
+        frameWidthMm: 500,
+        quantity: 1,
+        rate: 565,
+        factory: "Veera Glass",
+        status: "Draft",
+      });
+      nextRows = [defaultRow];
+      setSelectedRowId(defaultRow.id);
+    }
+
+    updateRowsWithHistory(nextRows);
+    setSelectedRowIds(new Set());
+    showToast(`Cleared ${targetCount} row(s). Press Ctrl+Z to undo.`);
+  };
+
   // Auto-grouped quotes (Client + Flat + Building)
   const groupedQuotes = useMemo(() => {
     return groupRowsByCustomer(rows);
@@ -918,6 +1041,32 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
               className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded font-medium transition"
             >
               + Add Row
+            </button>
+
+            {/* Delete Selected (Multi-select Batch Delete) */}
+            {selectedRowIds.size > 0 && (
+              <button
+                onClick={handleDeleteSelected}
+                className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white border border-rose-600 rounded font-semibold transition flex items-center gap-1.5 shadow-xs"
+                title={`Delete ${selectedRowIds.size} selected row(s)`}
+              >
+                <span>🗑️</span>
+                <span>Delete Selected ({selectedRowIds.size})</span>
+              </button>
+            )}
+
+            {/* Clear All Button */}
+            <button
+              onClick={handleClearAll}
+              className="px-2.5 py-1 bg-white hover:bg-rose-50 text-rose-700 border border-rose-300 hover:border-rose-400 rounded font-medium transition flex items-center gap-1"
+              title={
+                filterCustomer !== "ALL"
+                  ? `Clear all ${filteredRows.length} rows for ${filterCustomer}`
+                  : `Clear all ${rows.length} rows in the sheet`
+              }
+            >
+              <span>🗑️</span>
+              <span>Clear All</span>
             </button>
 
             <span className="text-slate-300">|</span>
@@ -1316,7 +1465,21 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                 <table className="w-full border-collapse text-xs font-sans">
                   <thead>
                     <tr className="bg-slate-100 border-b-2 border-slate-300 text-slate-700 font-bold text-[11px] select-none text-left">
-                      <th className="w-10 py-2.5 px-2 text-center text-slate-600 font-mono border-r border-slate-200">#</th>
+                      <th className="w-14 py-2.5 px-2 text-center text-slate-600 font-mono border-r border-slate-200">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <input
+                            type="checkbox"
+                            checked={isAllSelected}
+                            ref={(el) => {
+                              if (el) el.indeterminate = isSomeSelected;
+                            }}
+                            onChange={handleToggleSelectAll}
+                            title={isAllSelected ? "Deselect all rows" : "Select all rows"}
+                            className="w-3.5 h-3.5 accent-blue-600 rounded cursor-pointer"
+                          />
+                          <span>#</span>
+                        </div>
+                      </th>
                       <th className="py-2.5 px-2.5 min-w-[135px] border-r border-slate-200 text-slate-800 font-bold">
                         Product Category
                       </th>
@@ -1363,6 +1526,7 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                     {filteredRows.map((r, idx) => {
                       const rowNumber = idx + 1;
                       const isSelected = selectedRowId === r.id;
+                      const isChecked = selectedRowIds.has(r.id);
                       return (
                         <tr
                           key={r.id}
@@ -1372,12 +1536,29 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                             setActiveCellValue(`${r.clientName} | ${r.description} | ${r.frameHeightMm}x${r.frameWidthMm} | Net: ${r.netAmount}`);
                           }}
                           className={`hover:bg-blue-50/40 transition text-[11px] ${
-                            isSelected ? "bg-blue-50/60 ring-1 ring-blue-300" : ""
+                            isChecked
+                              ? "bg-blue-100/70 ring-1 ring-blue-300 font-medium"
+                              : isSelected
+                              ? "bg-blue-50/60 ring-1 ring-blue-300"
+                              : ""
                           }`}
                         >
-                          {/* Row Number */}
-                          <td className="bg-slate-50 border-r border-slate-200 py-1.5 px-1 text-center font-mono text-slate-500 select-none text-[11px] font-semibold">
-                            {rowNumber}
+                          {/* Row Number & Checkbox */}
+                          <td className="bg-slate-50 border-r border-slate-200 py-1.5 px-1 text-center font-mono text-slate-600 select-none text-[11px] font-semibold">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleSelectRow(r.id);
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                title="Select row for batch delete"
+                                className="w-3.5 h-3.5 accent-blue-600 rounded cursor-pointer"
+                              />
+                              <span>{rowNumber}</span>
+                            </div>
                           </td>
 
                           {/* Product Category */}
@@ -1563,8 +1744,20 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                 <thead>
                   <tr className="border-b-2 border-slate-400 text-slate-800 font-bold text-[11px] select-none text-center">
                     {/* Row Number Header */}
-                    <th className="w-12 bg-slate-200 border-r border-slate-300 py-1.5 text-center text-slate-700 font-mono text-[11px] font-bold">
-                      #
+                    <th className="w-14 bg-slate-200 border-r border-slate-300 py-1.5 px-1 text-center text-slate-700 font-mono text-[11px] font-bold">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <input
+                          type="checkbox"
+                          checked={isAllSelected}
+                          ref={(el) => {
+                            if (el) el.indeterminate = isSomeSelected;
+                          }}
+                          onChange={handleToggleSelectAll}
+                          title={isAllSelected ? "Deselect all rows" : "Select all rows"}
+                          className="w-3.5 h-3.5 accent-blue-600 rounded cursor-pointer"
+                        />
+                        <span>#</span>
+                      </div>
                     </th>
 
                     {/* Col A: Date */}
@@ -1693,6 +1886,7 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                   {filteredRows.map((r, idx) => {
                     const rowNumber = idx + 1; // Starts from 1 for every sheet as requested!
                     const isSelected = selectedRowId === r.id;
+                    const isChecked = selectedRowIds.has(r.id);
 
                     return (
                       <tr
@@ -1703,12 +1897,29 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
                           setActiveCellValue(`${r.clientName} | ${r.description} | ${r.frameHeightMm}x${r.frameWidthMm} | Net: ${r.netAmount}`);
                         }}
                         className={`hover:bg-blue-50/40 transition text-[11px] ${
-                          isSelected ? "bg-blue-50/70 ring-1 ring-blue-400" : ""
+                          isChecked
+                            ? "bg-blue-100/70 ring-1 ring-blue-400 font-medium"
+                            : isSelected
+                            ? "bg-blue-50/70 ring-1 ring-blue-400"
+                            : ""
                         }`}
                       >
-                        {/* Row Number */}
-                        <td className="bg-slate-100 border-r border-slate-300 py-1 px-1 text-center font-mono text-slate-500 select-none text-[10px]">
-                          {rowNumber}
+                        {/* Row Number & Checkbox */}
+                        <td className="bg-slate-100 border-r border-slate-300 py-1 px-1 text-center font-mono text-slate-600 select-none text-[10px]">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                handleToggleSelectRow(r.id);
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              title="Select row for batch delete"
+                              className="w-3.5 h-3.5 accent-blue-600 rounded cursor-pointer"
+                            />
+                            <span>{rowNumber}</span>
+                          </div>
                         </td>
 
                         {/* Col A: Date */}
