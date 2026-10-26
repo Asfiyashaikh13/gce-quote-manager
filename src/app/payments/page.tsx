@@ -81,7 +81,7 @@ export default function PaymentsPage() {
           setPayments(payJson.payments || []);
         }
 
-        if (quotesJson.success) {
+        if (quotesJson.quotes || quotesJson.success) {
           interface QuoteApiItem {
             id: string;
             quoteNumber: string;
@@ -122,9 +122,6 @@ export default function PaymentsPage() {
           });
 
           setReceivables(recList);
-          if (recList.length > 0 && !selectedQuoteId) {
-            setSelectedQuoteId(recList[0].id);
-          }
         }
       } catch (err) {
         console.error("Failed to load payment data:", err);
@@ -136,15 +133,31 @@ export default function PaymentsPage() {
     return () => {
       ignore = true;
     };
-  }, [refreshTrigger, selectedQuoteId]);
+  }, [refreshTrigger]);
 
   const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
   const totalOutstanding = receivables.reduce((sum, r) => sum + r.outstandingBalance, 0);
   const overdueQuotes = receivables.filter((r) => r.isOverdue);
   const totalOverdue = overdueQuotes.reduce((sum, r) => sum + r.outstandingBalance, 0);
 
+  const selectedQuote = receivables.find((r) => r.id === selectedQuoteId);
+
   const handleOpenPaymentModal = (quoteId?: string) => {
-    if (quoteId) setSelectedQuoteId(quoteId);
+    if (quoteId) {
+      setSelectedQuoteId(quoteId);
+      const target = receivables.find((r) => r.id === quoteId);
+      if (target && target.outstandingBalance > 0) {
+        setAmount(target.outstandingBalance.toString());
+      }
+    } else if (receivables.length > 0) {
+      const defaultQuote = selectedQuoteId
+        ? receivables.find((r) => r.id === selectedQuoteId) || receivables[0]
+        : receivables[0];
+      setSelectedQuoteId(defaultQuote.id);
+      if (defaultQuote.outstandingBalance > 0 && !amount) {
+        setAmount(defaultQuote.outstandingBalance.toString());
+      }
+    }
     setPaymentDate(new Date().toISOString().split("T")[0]);
     setIsModalOpen(true);
   };
@@ -519,19 +532,49 @@ export default function PaymentsPage() {
                 <label className="block font-semibold text-slate-700 mb-1">Select Quotation</label>
                 <select
                   value={selectedQuoteId}
-                  onChange={(e) => setSelectedQuoteId(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-xs font-medium"
+                  onChange={(e) => {
+                    const qId = e.target.value;
+                    setSelectedQuoteId(qId);
+                    const target = receivables.find((r) => r.id === qId);
+                    if (target && target.outstandingBalance > 0) {
+                      setAmount(target.outstandingBalance.toString());
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
                   required
                 >
                   <option value="" disabled>
                     Choose Quote...
                   </option>
-                  {receivables.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.quoteNumber} — {r.customerName} (Bal: {formatIndianCurrency(r.outstandingBalance)})
+                  {receivables.length === 0 ? (
+                    <option value="" disabled>
+                      No quotations found
                     </option>
-                  ))}
+                  ) : (
+                    receivables.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.quoteNumber} — {r.customerName} (Bal: {formatIndianCurrency(r.outstandingBalance)})
+                      </option>
+                    ))
+                  )}
                 </select>
+
+                {selectedQuote && (
+                  <div className="mt-2 p-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-600 flex items-center justify-between">
+                    <div>
+                      <span className="font-semibold text-slate-900">{selectedQuote.customerName}</span>
+                      {(selectedQuote.building || selectedQuote.flat) && (
+                        <span className="ml-1 text-slate-500">
+                          ({[selectedQuote.building, selectedQuote.flat ? `Flat ${selectedQuote.flat}` : ""].filter(Boolean).join(" - ")})
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <span className="text-slate-500 mr-2">Total: {formatIndianCurrency(selectedQuote.displayTotal)}</span>
+                      <span className="font-bold text-amber-700">Bal: {formatIndianCurrency(selectedQuote.outstandingBalance)}</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">

@@ -59,7 +59,7 @@ export async function GET(request: Request) {
       validUntil: q.validUntil ? q.validUntil.toISOString() : null,
     }));
 
-    return NextResponse.json({ quotes: formatted });
+    return NextResponse.json({ success: true, quotes: formatted });
   } catch (error) {
     console.error("GET /api/quotes error:", error);
     return NextResponse.json({ error: "Failed to fetch quotes" }, { status: 500 });
