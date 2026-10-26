@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { UserMenu } from "@/components/UserMenu";
 
 interface SevenTabsNavProps {
   currentTab?: "quotes" | "processing" | "payments" | "vendors" | "expenses" | "profit" | "inventory";
@@ -117,20 +118,20 @@ export function SevenTabsNav({ currentTab }: SevenTabsNavProps) {
           </span>
         </div>
 
-        <div className="flex items-center gap-2 text-[11px] font-medium">
-          <span className="text-slate-300">Status Indicator:</span>
-          <span className="px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-400/30 font-bold">
-            Pending
-          </span>
-          <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30 font-bold">
-            Follow Up
-          </span>
-          <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 font-bold">
-            Received
-          </span>
-          <span className="text-emerald-400 font-bold ml-1 hidden sm:inline">
-            &mdash; Real-Time Color Coded Status
-          </span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-[11px] font-medium hidden md:flex">
+            <span className="text-slate-300">Status:</span>
+            <span className="px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-400/30 font-bold">
+              Pending
+            </span>
+            <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30 font-bold">
+              Follow Up
+            </span>
+            <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 font-bold">
+              Received
+            </span>
+          </div>
+          <UserMenu />
         </div>
       </div>
 
