@@ -1,9 +1,16 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { getSession } from "@/lib/auth/session";
 import { MasterSheet } from "./MasterSheet";
 import { MasterSheetRowData } from "@/lib/sheet/types";
 
 async function MasterSheetData() {
+  const session = await getSession();
+  if (!session) {
+    redirect("/login");
+  }
+
   let rows: MasterSheetRowData[] = [];
   let products: Array<{ id: string; name: string; code: string | null; rate: number }> = [];
   let factories: Array<{ id: string; name: string }> = [];
