@@ -7,7 +7,6 @@ import { MasterSheetRowData } from "@/lib/sheet/types";
 import { groupRowsByCustomer, GroupedCustomerQuote } from "@/lib/sheet/grouping";
 import { calculateQuoteItem, formatIndianCurrency, numberToIndianWords } from "@/lib/calc";
 import { SevenTabsNav } from "@/components/SevenTabsNav";
-import { UserMenu } from "@/components/UserMenu";
 
 interface ProductOption {
   id: string;
@@ -869,9 +868,6 @@ export function MasterSheet({ initialRows, products, factories }: MasterSheetPro
               <span>💬</span>
               <span>WhatsApp</span>
             </button>
-
-            {/* User Profile & Account Menu */}
-            <UserMenu />
           </div>
         </div>
 

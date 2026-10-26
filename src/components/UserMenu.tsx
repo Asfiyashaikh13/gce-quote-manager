@@ -11,7 +11,11 @@ interface UserInfo {
   role: "ADMIN" | "MANAGER" | "STAFF" | "VIEWER";
 }
 
-export function UserMenu() {
+interface UserMenuProps {
+  variant?: "dark" | "light";
+}
+
+export function UserMenu({ variant = "dark" }: UserMenuProps) {
   const router = useRouter();
   const [user, setUser] = useState<UserInfo | null>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -48,11 +52,17 @@ export function UserMenu() {
     }
   };
 
+  const isDark = variant === "dark";
+
   if (!user) {
     return (
       <Link
         href="/login"
-        className="px-3 py-1 bg-white hover:bg-slate-100 text-blue-700 border border-blue-300 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+        className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs ${
+          isDark
+            ? "bg-white/10 hover:bg-white/20 text-white border border-white/20"
+            : "bg-white hover:bg-slate-100 text-blue-700 border border-blue-300"
+        }`}
       >
         <span>👤</span>
         <span>Sign In</span>
@@ -60,12 +70,14 @@ export function UserMenu() {
     );
   }
 
-  const roleBadge =
+  const roleLabel =
     user.role === "ADMIN"
-      ? { label: "Owner", bg: "bg-blue-100 text-blue-800 border-blue-200" }
+      ? "Owner"
       : user.role === "MANAGER"
-      ? { label: "Partner", bg: "bg-teal-100 text-teal-800 border-teal-200" }
-      : { label: user.role, bg: "bg-slate-100 text-slate-700 border-slate-200" };
+      ? "Partner"
+      : user.role === "STAFF"
+      ? "Staff"
+      : "Client";
 
   const initials = user.name
     ? user.name
@@ -80,27 +92,35 @@ export function UserMenu() {
     <div className="relative inline-block text-left" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 p-1 rounded-lg hover:bg-slate-100 transition cursor-pointer border border-transparent hover:border-slate-200"
+        className={`flex items-center gap-2 px-2 py-1 rounded-lg transition cursor-pointer border ${
+          isDark
+            ? "hover:bg-white/10 border-transparent hover:border-white/15 text-white"
+            : "hover:bg-slate-100 border-transparent hover:border-slate-200 text-slate-800"
+        }`}
         title="Account Profile & Settings"
       >
-        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+        <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-xs ring-1 ring-white/25 shrink-0">
           {initials}
         </div>
         <div className="hidden sm:block text-left text-xs leading-tight">
-          <div className="font-bold text-slate-900 truncate max-w-[100px]">{user.name || "User"}</div>
-          <div className="text-[10px] text-slate-500 capitalize">{roleBadge.label}</div>
+          <div className={`font-bold truncate max-w-[110px] ${isDark ? "text-white" : "text-slate-900"}`}>
+            {user.name || "User"}
+          </div>
+          <div className={`text-[10px] font-medium capitalize ${isDark ? "text-emerald-300" : "text-slate-500"}`}>
+            {roleLabel}
+          </div>
         </div>
-        <span className="text-slate-400 text-[10px]">▼</span>
+        <span className={`text-[10px] ${isDark ? "text-slate-300" : "text-slate-400"}`}>▼</span>
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-1 w-64 rounded-xl bg-white shadow-lg border border-slate-200 z-50 py-2 divide-y divide-slate-100 animate-in fade-in zoom-in-95 duration-100">
+        <div className="absolute right-0 mt-1 w-64 rounded-xl bg-white shadow-xl border border-slate-200 z-50 py-2 divide-y divide-slate-100 text-slate-800 animate-in fade-in zoom-in-95 duration-100">
           {/* User info card */}
-          <div className="px-4 py-3 bg-slate-50/50">
+          <div className="px-4 py-3 bg-slate-50/70">
             <div className="flex items-center justify-between">
               <span className="font-bold text-xs text-slate-900 truncate">{user.name || "User"}</span>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${roleBadge.bg}`}>
-                {roleBadge.label}
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-blue-50 text-blue-800 border-blue-200">
+                {roleLabel}
               </span>
             </div>
             <div className="text-[11px] font-mono text-slate-500 truncate mt-0.5">{user.email}</div>
