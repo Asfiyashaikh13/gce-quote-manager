@@ -15,7 +15,11 @@ export async function GET(
 
     const quote = await prisma.quote.findUnique({
       where: { id },
-      include: { items: { orderBy: { itemOrder: "asc" } } },
+      include: {
+        items: { orderBy: { itemOrder: "asc" } },
+        payments: { where: { deletedAt: null } },
+        customer: true,
+      },
     });
 
     if (!quote || quote.deletedAt !== null) {
@@ -29,19 +33,27 @@ export async function GET(
       settingsMap[s.key] = s.value;
     });
 
+    const totalPaid = quote.status === "PAID"
+      ? quote.displayTotal.toNumber()
+      : quote.payments.reduce((acc, p) => acc + p.amount.toNumber(), 0);
+    const balanceDue = Math.max(0, quote.displayTotal.toNumber() - totalPaid);
+
     const pdfData = {
       quoteNumber: quote.quoteNumber,
       version: quote.version,
       createdAt: quote.createdAt,
       validUntil: quote.validUntil,
       customerName: quote.customerName,
-      customerPhone: quote.customerPhone || null,
+      customerPhone: quote.customerPhone || quote.customer?.phone || null,
+      customerGstin: quote.customer?.gstin || null,
       customerBuilding: quote.customerBuilding,
       customerFlat: quote.customerFlat,
       customerAddress: quote.customerAddress,
       customerState: quote.customerState,
       destinationState: quote.destinationState,
       status: quote.status,
+      totalPaid,
+      balanceDue,
       subTotal: quote.subTotal.toNumber(),
       cgstTotal: quote.cgstTotal.toNumber(),
       sgstTotal: quote.sgstTotal.toNumber(),
