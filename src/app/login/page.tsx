@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectUrl = searchParams.get("redirect") || "/";
+  const redirectUrl = searchParams.get("redirect") || "/quotes";
 
   const [email, setEmail] = useState("admin@gce.local");
   const [password, setPassword] = useState("Admin@123");
@@ -151,8 +151,8 @@ function LoginForm() {
         </form>
 
         <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-          <Link href="/" className="hover:text-blue-600 font-medium">
-            ← Return to Master Sheet
+          <Link href="/quotes" className="hover:text-blue-600 font-medium">
+            ← Return to Quotation Tracker
           </Link>
           <Link href="/change-password" className="text-blue-600 hover:underline font-medium">
             Forgot Password?

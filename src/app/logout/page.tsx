@@ -34,10 +34,10 @@ export default function LogoutPage() {
             Sign In Again
           </Link>
           <Link
-            href="/"
+            href="/quotes"
             className="w-full py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition"
           >
-            Return to Master Sheet
+            Return to Quotation Tracker
           </Link>
         </div>
 

@@ -29,7 +29,7 @@ export async function middleware(request: NextRequest) {
       if (token) {
         try {
           await jwtVerify(token, SECRET_KEY);
-          return NextResponse.redirect(new URL("/", request.url));
+          return NextResponse.redirect(new URL("/quotes", request.url));
         } catch {
           // Token invalid, allow /login
         }

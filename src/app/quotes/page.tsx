@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { formatIndianCurrency } from "@/lib/calc";
+import { formatIndianCurrency, calculateQuote } from "@/lib/calc";
 import { ALLOWED_STATUS_TRANSITIONS } from "@/lib/quotes/status";
+import { generateWhatsAppShareUrl } from "@/lib/quotes/whatsapp";
 import { QuoteStatus } from "@prisma/client";
 import { SevenTabsNav } from "@/components/SevenTabsNav";
 
@@ -27,44 +28,82 @@ interface QuoteListItem {
   validUntil: string | null;
 }
 
+interface NewQuoteLineItem {
+  id: string;
+  description: string;
+  frameHeightMm: number;
+  frameWidthMm: number;
+  quantity: number;
+  rate: number;
+}
+
+const STANDARD_PRESETS = [
+  { name: "Al Shutters 565", rate: 565 },
+  { name: "Al Shutters 430", rate: 430 },
+  { name: "8mm plain glass", rate: 135 },
+  { name: "5mm mirror polished", rate: 145 },
+  { name: "Custom Marble Inlay + 12mm Toughened", rate: 850 },
+  { name: "Beveled Edge Glass with Brass Trim", rate: 975 },
+];
+
 export default function QuotesListPage() {
   const [quotes, setQuotes] = useState<QuoteListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [error, setError] = useState("");
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  // New Quote Modal State
+  const [newModalOpen, setNewModalOpen] = useState(false);
+  const [newCustomerName, setNewCustomerName] = useState("");
+  const [newBuilding, setNewBuilding] = useState("");
+  const [newFlat, setNewFlat] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const [newState, setNewState] = useState("Karnataka");
+  const [newFreight, setNewFreight] = useState(0);
+  const [newDiscountType, setNewDiscountType] = useState<"NONE" | "PERCENT" | "FLAT">("NONE");
+  const [newDiscountVal, setNewDiscountVal] = useState(0);
+  const [newItems, setNewItems] = useState<NewQuoteLineItem[]>([
+    {
+      id: "item-1",
+      description: "Al Shutters 565",
+      frameHeightMm: 1000,
+      frameWidthMm: 500,
+      quantity: 1,
+      rate: 565,
+    },
+  ]);
+  const [submitting, setSubmitting] = useState(false);
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3500);
+  };
+
+  const loadQuotes = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (statusFilter !== "ALL") params.set("status", statusFilter);
+      if (search) params.set("search", search);
+
+      const res = await fetch(`/api/quotes?${params.toString()}`);
+      if (!res.ok) {
+        setError("Failed to fetch quotes");
+        setLoading(false);
+        return;
+      }
+      const data = await res.json();
+      setQuotes(data.quotes || []);
+      setLoading(false);
+    } catch {
+      setError("Error connecting to server");
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let ignore = false;
-    async function load() {
-      try {
-        const params = new URLSearchParams();
-        if (statusFilter !== "ALL") params.set("status", statusFilter);
-        if (search) params.set("search", search);
-
-        const res = await fetch(`/api/quotes?${params.toString()}`);
-        if (ignore) return;
-        if (!res.ok) {
-          setError("Failed to fetch quotes");
-          setLoading(false);
-          return;
-        }
-        const data = await res.json();
-        if (!ignore) {
-          setQuotes(data.quotes || []);
-          setLoading(false);
-        }
-      } catch {
-        if (!ignore) {
-          setError("Error connecting to server");
-          setLoading(false);
-        }
-      }
-    }
-    load();
-    return () => {
-      ignore = true;
-    };
+    loadQuotes();
   }, [statusFilter, search]);
 
   const handleStatusChange = async (id: string, newStatus: QuoteStatus) => {
@@ -76,6 +115,7 @@ export default function QuotesListPage() {
       });
       if (res.ok) {
         setQuotes((prev) => prev.map((q) => (q.id === id ? { ...q, status: newStatus } : q)));
+        showToast(`Quote status updated to ${newStatus.replace("_", " ")}`);
       } else {
         const d = await res.json();
         alert(d.error || "Cannot transition status");
@@ -85,91 +125,270 @@ export default function QuotesListPage() {
     }
   };
 
+  const handleDeleteQuote = async (id: string, quoteNumber: string) => {
+    if (!window.confirm(`Are you sure you want to delete quotation ${quoteNumber}?`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/quotes/${id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setQuotes((prev) => prev.filter((q) => q.id !== id));
+        showToast(`Quotation ${quoteNumber} deleted`);
+      } else {
+        const d = await res.json();
+        alert(d.error || "Failed to delete quote");
+      }
+    } catch {
+      alert("Failed to delete quote");
+    }
+  };
+
+  // Live calculation for new quote modal
+  const newQuoteCalc = useMemo(() => {
+    if (newItems.length === 0) return { subTotal: 0, gstTotal: 0, grandTotal: 0 };
+    try {
+      const calc = calculateQuote({
+        items: newItems.map((it) => ({
+          frameHeight: it.frameHeightMm || 0,
+          frameWidth: it.frameWidthMm || 0,
+          quantity: it.quantity || 1,
+          rate: it.rate || 0,
+          description: it.description,
+        })),
+        freight: newFreight || 0,
+        discount: newDiscountType !== "NONE" ? { type: newDiscountType, value: newDiscountVal || 0 } : undefined,
+        state: newState || "Karnataka",
+      });
+      return {
+        subTotal: calc.totals.subTotal.toNumber(),
+        gstTotal: calc.totals.gstTotal.toNumber(),
+        grandTotal: calc.totals.grandTotal.toNumber(),
+      };
+    } catch {
+      return { subTotal: 0, gstTotal: 0, grandTotal: 0 };
+    }
+  }, [newItems, newFreight, newDiscountType, newDiscountVal, newState]);
+
+  const handleAddItemToNewQuote = () => {
+    setNewItems((prev) => [
+      ...prev,
+      {
+        id: `item-${Date.now()}`,
+        description: "8mm plain glass",
+        frameHeightMm: 1000,
+        frameWidthMm: 500,
+        quantity: 1,
+        rate: 135,
+      },
+    ]);
+  };
+
+  const handleRemoveItemFromNewQuote = (id: string) => {
+    if (newItems.length <= 1) return;
+    setNewItems((prev) => prev.filter((it) => it.id !== id));
+  };
+
+  const handleCreateNewQuote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCustomerName.trim()) {
+      alert("Please enter customer name");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/quotes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerName: newCustomerName.trim(),
+          customerBuilding: newBuilding.trim(),
+          customerFlat: newFlat.trim(),
+          customerPhone: newPhone.trim(),
+          destinationState: newState,
+          freight: Number(newFreight) || 0,
+          discountType: newDiscountType,
+          discountValue: Number(newDiscountVal) || 0,
+          items: newItems.map((it) => ({
+            description: it.description,
+            frameHeightMm: Number(it.frameHeightMm) || 0,
+            frameWidthMm: Number(it.frameWidthMm) || 0,
+            quantity: Number(it.quantity) || 1,
+            rate: Number(it.rate) || 0,
+          })),
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.quote) {
+        showToast(`Quotation ${data.quote.quoteNumber} created successfully!`);
+        setNewModalOpen(false);
+        // Reset form
+        setNewCustomerName("");
+        setNewBuilding("");
+        setNewFlat("");
+        setNewPhone("");
+        setNewItems([
+          {
+            id: "item-1",
+            description: "Al Shutters 565",
+            frameHeightMm: 1000,
+            frameWidthMm: 500,
+            quantity: 1,
+            rate: 565,
+          },
+        ]);
+        loadQuotes();
+      } else {
+        alert(data.error || "Failed to create quote");
+      }
+    } catch {
+      alert("Network error creating quote");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // KPI Calculations
+  const totalValue = quotes.reduce((sum, q) => sum + q.displayTotal, 0);
+  const activeQuotes = quotes.filter((q) => ["APPROVED", "IN_PRODUCTION"].includes(q.status));
+  const activeValue = activeQuotes.reduce((sum, q) => sum + q.displayTotal, 0);
+  const pendingQuotes = quotes.filter((q) => ["DRAFT", "SENT"].includes(q.status));
+  const pendingValue = pendingQuotes.reduce((sum, q) => sum + q.displayTotal, 0);
+  const paidQuotes = quotes.filter((q) => ["DELIVERED", "PAID"].includes(q.status));
+  const paidValue = paidQuotes.reduce((sum, q) => sum + q.displayTotal, 0);
+
   const getStatusBadge = (status: QuoteStatus) => {
     const map: Record<QuoteStatus, string> = {
-      DRAFT: "bg-slate-100 text-slate-700 border-slate-200",
-      SENT: "bg-blue-50 text-blue-700 border-blue-200",
-      APPROVED: "bg-emerald-50 text-emerald-700 border-emerald-200",
-      IN_PRODUCTION: "bg-amber-50 text-amber-700 border-amber-200",
-      DELIVERED: "bg-purple-50 text-purple-700 border-purple-200",
-      PAID: "bg-green-50 text-green-700 border-green-200",
-      CANCELLED: "bg-red-50 text-red-700 border-red-200",
+      DRAFT: "bg-slate-100 text-slate-700 border-slate-300",
+      SENT: "bg-blue-50 text-blue-700 border-blue-300",
+      APPROVED: "bg-emerald-50 text-emerald-700 border-emerald-300",
+      IN_PRODUCTION: "bg-amber-50 text-amber-800 border-amber-300",
+      DELIVERED: "bg-purple-50 text-purple-700 border-purple-300",
+      PAID: "bg-green-100 text-green-900 border-green-300 font-extrabold",
+      CANCELLED: "bg-red-50 text-red-700 border-red-300",
     };
     return map[status] || "bg-slate-100 text-slate-700";
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 pb-16">
+    <div className="min-h-screen bg-slate-100 pb-16 font-sans">
+      {/* 7 Tabs Horizontal Header */}
       <SevenTabsNav currentTab="quotes" />
 
-      {/* Header */}
+      {/* Quotation Tracker Subheader */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
-                GCE
-              </div>
-              <h1 className="text-base font-bold text-slate-900">Quotations Registry</h1>
-              <span className="px-2.5 py-0.5 text-xs font-semibold bg-blue-50 text-blue-700 rounded-full border border-blue-200">
-                {quotes.length} Total
-              </span>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-700 text-white flex items-center justify-center font-black text-sm shadow-sm">
+              TAB 1
             </div>
-
-            <nav className="hidden sm:flex items-center gap-1 text-xs font-semibold">
-              <Link href="/" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition">
-                Master Sheet
-              </Link>
-              <Link href="/quotes" className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md transition">
-                Quotes
-              </Link>
-              <Link href="/factory" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition">
-                Factory Sheet
-              </Link>
-              <Link href="/payments" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition">
-                Payments
-              </Link>
-              <Link href="/dashboard" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition">
-                Dashboard
-              </Link>
-              <Link href="/customers" className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition">
-                Customers
-              </Link>
-            </nav>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base font-bold text-slate-900">Quotation Tracker</h1>
+                <span className="px-2 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-800 rounded-full border border-emerald-200">
+                  {quotes.length} Quotes
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">Date • Client • Location • Amounts • Status &amp; PDF/Excel/WhatsApp</p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition"
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => setNewModalOpen(true)}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
             >
-              + Create from Sheet
-            </Link>
+              <span>+</span>
+              <span>New Quotation</span>
+            </button>
+            <button
+              onClick={loadQuotes}
+              className="p-2 bg-white hover:bg-slate-50 text-slate-600 border border-slate-300 rounded-lg text-xs font-medium transition cursor-pointer"
+              title="Refresh list"
+            >
+              🔄
+            </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+      {/* Toast Notification */}
+      {toastMsg && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs px-4 py-2.5 rounded-lg shadow-xl font-medium animate-bounce flex items-center gap-2">
+          <span>✓</span>
+          <span>{toastMsg}</span>
+        </div>
+      )}
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-5">
+        {/* KPI Summary Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 mb-5">
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Total Quotations</span>
+            <div className="mt-1 flex items-baseline justify-between">
+              <span className="text-lg font-bold text-slate-900">{formatIndianCurrency(totalValue)}</span>
+              <span className="text-xs font-semibold text-slate-600 font-mono">{quotes.length} quotes</span>
+            </div>
+          </div>
+
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+            <span className="text-[11px] font-semibold text-blue-600 uppercase tracking-wide">Draft &amp; Pending</span>
+            <div className="mt-1 flex items-baseline justify-between">
+              <span className="text-lg font-bold text-blue-900">{formatIndianCurrency(pendingValue)}</span>
+              <span className="text-xs font-semibold text-blue-700 font-mono">{pendingQuotes.length} quotes</span>
+            </div>
+          </div>
+
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+            <span className="text-[11px] font-semibold text-amber-600 uppercase tracking-wide">Approved &amp; In Production</span>
+            <div className="mt-1 flex items-baseline justify-between">
+              <span className="text-lg font-bold text-amber-900">{formatIndianCurrency(activeValue)}</span>
+              <span className="text-xs font-semibold text-amber-700 font-mono">{activeQuotes.length} quotes</span>
+            </div>
+          </div>
+
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+            <span className="text-[11px] font-semibold text-emerald-600 uppercase tracking-wide">Delivered &amp; Paid</span>
+            <div className="mt-1 flex items-baseline justify-between">
+              <span className="text-lg font-bold text-emerald-900">{formatIndianCurrency(paidValue)}</span>
+              <span className="text-xs font-semibold text-emerald-700 font-mono">{paidQuotes.length} quotes</span>
+            </div>
+          </div>
+        </div>
+
         {/* Search & Filter Toolbar */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3 flex-1 min-w-[280px]">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by quote number, customer, building..."
-              className="w-full max-w-md px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
+        <div className="bg-white rounded-xl border border-slate-200 p-3.5 mb-4 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 flex-1 min-w-[260px]">
+            <div className="relative w-full max-w-md">
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by quote #, customer, building, flat..."
+                className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+              <span className="absolute left-2.5 top-1.5 text-slate-400 text-xs">🔍</span>
+            </div>
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="text-xs text-slate-500 hover:text-slate-800 px-2 py-1 rounded"
+              >
+                Clear
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500 font-medium">Status:</span>
+            <span className="text-xs text-slate-500 font-semibold">Filter Status:</span>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white"
+              className="px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white font-medium cursor-pointer"
             >
-              <option value="ALL">All Statuses</option>
+              <option value="ALL">All Statuses ({quotes.length})</option>
               <option value="DRAFT">Draft</option>
               <option value="SENT">Sent</option>
               <option value="APPROVED">Approved</option>
@@ -188,67 +407,110 @@ export default function QuotesListPage() {
         )}
 
         {/* Quotes Table */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
                 <tr>
-                  <th className="py-3 px-4">Quote #</th>
-                  <th className="py-3 px-4">Customer</th>
+                  <th className="py-3 px-3 text-center w-10">#</th>
+                  <th className="py-3 px-3">Date &amp; Quote #</th>
+                  <th className="py-3 px-3">Customer Name</th>
                   <th className="py-3 px-3">Location / Flat</th>
-                  <th className="py-3 px-3 text-center">Items</th>
+                  <th className="py-3 px-2 text-center">Items</th>
                   <th className="py-3 px-3 text-right">Sub Total</th>
-                  <th className="py-3 px-3 text-right">GST</th>
-                  <th className="py-3 px-4 text-right">Grand Total</th>
-                  <th className="py-3 px-4">Status & Allowed Transitions</th>
-                  <th className="py-3 px-4 text-center">Action</th>
+                  <th className="py-3 px-3 text-right">GST (18%)</th>
+                  <th className="py-3 px-3 text-right">Grand Total</th>
+                  <th className="py-3 px-3 text-center">Status &amp; Move</th>
+                  <th className="py-3 px-4 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={9} className="py-8 text-center text-slate-400">
-                      Loading quotes...
+                    <td colSpan={10} className="py-12 text-center text-slate-400 font-medium">
+                      Loading quotations...
                     </td>
                   </tr>
                 ) : quotes.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-8 text-center text-slate-400">
-                      No quotations found.
+                    <td colSpan={10} className="py-12 text-center text-slate-400">
+                      <p className="text-sm font-semibold text-slate-600">No quotations found</p>
+                      <p className="text-xs text-slate-400 mt-1">Click &quot;+ New Quotation&quot; to create your first quote.</p>
                     </td>
                   </tr>
                 ) : (
-                  quotes.map((q) => {
+                  quotes.map((q, idx) => {
                     const allowedTransitions = ALLOWED_STATUS_TRANSITIONS[q.status] || [];
+                    const createdDateFormatted = q.createdAt
+                      ? new Date(q.createdAt).toLocaleDateString("en-IN", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        })
+                      : "—";
+
+                    const waShareUrl = generateWhatsAppShareUrl({
+                      quoteNumber: q.quoteNumber,
+                      customerName: q.customerName,
+                      displayTotal: q.displayTotal,
+                      itemCount: q.itemCount,
+                    });
+
                     return (
-                      <tr key={q.id} className="hover:bg-slate-50/75 transition">
-                        <td className="py-3 px-4 font-mono font-bold text-blue-600">
-                          <Link href={`/quotes/${q.id}`} className="hover:underline">
+                      <tr key={q.id} className="hover:bg-slate-50/80 transition">
+                        {/* # Index */}
+                        <td className="py-3 px-3 text-center font-mono text-slate-400 text-[11px]">
+                          {idx + 1}
+                        </td>
+
+                        {/* Quote Number & Date */}
+                        <td className="py-3 px-3 font-mono">
+                          <Link href={`/quotes/${q.id}`} className="font-bold text-blue-600 hover:underline">
                             {q.quoteNumber}
                           </Link>
                           {q.version > 1 && (
-                            <span className="ml-1 text-[10px] text-slate-400 font-normal">v{q.version}</span>
+                            <span className="ml-1 text-[10px] bg-slate-100 text-slate-600 px-1 py-0.2 rounded font-normal">
+                              v{q.version}
+                            </span>
                           )}
+                          <div className="text-[10px] text-slate-400 font-normal">{createdDateFormatted}</div>
                         </td>
-                        <td className="py-3 px-4 font-semibold text-slate-900">{q.customerName}</td>
-                        <td className="py-3 px-3 text-slate-500">
-                          {q.customerFlat ? `Flat ${q.customerFlat}` : ""}
-                          {q.customerBuilding ? ` (${q.customerBuilding})` : ""}
+
+                        {/* Customer */}
+                        <td className="py-3 px-3 font-semibold text-slate-900">
+                          {q.customerName}
                         </td>
-                        <td className="py-3 px-3 text-center font-mono">{q.itemCount}</td>
-                        <td className="py-3 px-3 text-right font-mono text-slate-700">
+
+                        {/* Location */}
+                        <td className="py-3 px-3 text-slate-600">
+                          {[q.customerBuilding, q.customerFlat ? `Flat ${q.customerFlat}` : ""].filter(Boolean).join(" - ") || "—"}
+                        </td>
+
+                        {/* Items */}
+                        <td className="py-3 px-2 text-center font-mono font-medium text-slate-700">
+                          {q.itemCount}
+                        </td>
+
+                        {/* Sub Total */}
+                        <td className="py-3 px-3 text-right font-mono text-slate-600">
                           {formatIndianCurrency(q.subTotal)}
                         </td>
-                        <td className="py-3 px-3 text-right font-mono text-slate-600">
+
+                        {/* GST */}
+                        <td className="py-3 px-3 text-right font-mono text-slate-500">
                           {formatIndianCurrency(q.gstTotal)}
                         </td>
-                        <td className="py-3 px-4 text-right font-mono font-bold text-slate-900 text-sm">
+
+                        {/* Grand Total */}
+                        <td className="py-3 px-3 text-right font-mono font-bold text-slate-900 text-[13px]">
                           {formatIndianCurrency(q.displayTotal)}
                         </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-2">
+
+                        {/* Status & Move */}
+                        <td className="py-3 px-3 text-center">
+                          <div className="flex flex-col items-center gap-1">
                             <span
-                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase ${getStatusBadge(
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase ${getStatusBadge(
                                 q.status
                               )}`}
                             >
@@ -263,10 +525,11 @@ export default function QuotesListPage() {
                                     e.target.value = "";
                                   }
                                 }}
-                                className="px-1.5 py-0.5 text-[10px] border border-slate-200 rounded bg-white text-slate-600"
+                                className="px-1.5 py-0.5 text-[10px] border border-slate-200 rounded bg-white text-slate-600 cursor-pointer"
+                                title="Advance quotation status"
                               >
                                 <option value="" disabled>
-                                  Move to...
+                                  Advance to...
                                 </option>
                                 {allowedTransitions.map((t) => (
                                   <option key={t} value={t}>
@@ -277,13 +540,59 @@ export default function QuotesListPage() {
                             )}
                           </div>
                         </td>
+
+                        {/* Actions */}
                         <td className="py-3 px-4 text-center">
-                          <Link
-                            href={`/quotes/${q.id}`}
-                            className="px-2.5 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-md transition"
-                          >
-                            View / Edit →
-                          </Link>
+                          <div className="flex items-center justify-center gap-1">
+                            {/* View / Edit */}
+                            <Link
+                              href={`/quotes/${q.id}`}
+                              className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-semibold transition"
+                              title="View & Edit Quotation Details"
+                            >
+                              👁️ View
+                            </Link>
+
+                            {/* PDF */}
+                            <a
+                              href={`/api/quotes/${q.id}/pdf`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded text-[11px] font-semibold transition"
+                              title="View / Print Official Quotation PDF"
+                            >
+                              📄 PDF
+                            </a>
+
+                            {/* Excel */}
+                            <a
+                              href={`/api/quotes/${q.id}/excel`}
+                              className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded text-[11px] font-semibold transition"
+                              title="Download Quotation Excel"
+                            >
+                              📊 XLS
+                            </a>
+
+                            {/* WhatsApp */}
+                            <a
+                              href={waShareUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-2 py-1 bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded text-[11px] font-semibold transition"
+                              title="Share on WhatsApp"
+                            >
+                              💬 WA
+                            </a>
+
+                            {/* Delete */}
+                            <button
+                              onClick={() => handleDeleteQuote(q.id, q.quoteNumber)}
+                              className="p-1 text-slate-400 hover:text-red-600 rounded hover:bg-red-50 transition cursor-pointer"
+                              title="Delete Quote"
+                            >
+                              🗑️
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -294,6 +603,245 @@ export default function QuotesListPage() {
           </div>
         </div>
       </main>
+
+      {/* ============================================================== */}
+      {/* QUICK NEW QUOTATION MODAL (No Marksheet Spreadsheet Required)   */}
+      {/* ============================================================== */}
+      {newModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 animate-scale-in">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Create New Quotation</h3>
+                <p className="text-xs text-slate-500">Fast quote generator — auto-calculates areas, GST &amp; totals</p>
+              </div>
+              <button
+                onClick={() => setNewModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold text-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateNewQuote} className="space-y-4 text-xs">
+              {/* Customer Info */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2 sm:col-span-1">
+                  <label className="block font-semibold text-slate-700 mb-1">Customer Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newCustomerName}
+                    onChange={(e) => setNewCustomerName(e.target.value)}
+                    placeholder="e.g. Mr. Fayaz / Royal Villa"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div className="col-span-2 sm:col-span-1">
+                  <label className="block font-semibold text-slate-700 mb-1">Building / Project</label>
+                  <input
+                    type="text"
+                    value={newBuilding}
+                    onChange={(e) => setNewBuilding(e.target.value)}
+                    placeholder="e.g. MAIN BUILDING"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Flat / Unit No</label>
+                  <input
+                    type="text"
+                    value={newFlat}
+                    onChange={(e) => setNewFlat(e.target.value)}
+                    placeholder="e.g. Flat 27"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Phone (Optional)</label>
+                  <input
+                    type="tel"
+                    value={newPhone}
+                    onChange={(e) => setNewPhone(e.target.value)}
+                    placeholder="e.g. 7411415842"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {/* Items Section */}
+              <div className="pt-2 border-t border-slate-200">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="font-bold text-slate-800">Quotation Line Items ({newItems.length})</label>
+                  <button
+                    type="button"
+                    onClick={handleAddItemToNewQuote}
+                    className="px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md hover:bg-emerald-100 transition cursor-pointer"
+                  >
+                    + Add Item
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {newItems.map((item, i) => (
+                    <div key={item.id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-slate-700 text-[11px]">Item #{i + 1}</span>
+                        {newItems.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveItemFromNewQuote(item.id)}
+                            className="text-red-500 hover:text-red-700 text-xs font-bold cursor-pointer"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-6 gap-2">
+                        {/* Description */}
+                        <div className="col-span-3">
+                          <label className="block text-[10px] text-slate-500 font-medium mb-0.5">Description / Glass</label>
+                          <input
+                            type="text"
+                            list="presets"
+                            required
+                            value={item.description}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const matched = STANDARD_PRESETS.find((p) => p.name.toLowerCase() === val.toLowerCase());
+                              setNewItems((prev) =>
+                                prev.map((it) =>
+                                  it.id === item.id
+                                    ? { ...it, description: val, rate: matched ? matched.rate : it.rate }
+                                    : it
+                                )
+                              );
+                            }}
+                            className="w-full px-2 py-1.5 text-xs bg-white border border-slate-300 rounded font-medium"
+                          />
+                        </div>
+
+                        {/* Height (mm) */}
+                        <div className="col-span-1">
+                          <label className="block text-[10px] text-slate-500 font-medium mb-0.5">Height (mm)</label>
+                          <input
+                            type="number"
+                            min="50"
+                            value={item.frameHeightMm}
+                            onChange={(e) => {
+                              const v = Number(e.target.value);
+                              setNewItems((prev) =>
+                                prev.map((it) => (it.id === item.id ? { ...it, frameHeightMm: v } : it))
+                              );
+                            }}
+                            className="w-full px-2 py-1.5 text-xs bg-white border border-slate-300 rounded font-mono"
+                          />
+                        </div>
+
+                        {/* Width (mm) */}
+                        <div className="col-span-1">
+                          <label className="block text-[10px] text-slate-500 font-medium mb-0.5">Width (mm)</label>
+                          <input
+                            type="number"
+                            min="50"
+                            value={item.frameWidthMm}
+                            onChange={(e) => {
+                              const v = Number(e.target.value);
+                              setNewItems((prev) =>
+                                prev.map((it) => (it.id === item.id ? { ...it, frameWidthMm: v } : it))
+                              );
+                            }}
+                            className="w-full px-2 py-1.5 text-xs bg-white border border-slate-300 rounded font-mono"
+                          />
+                        </div>
+
+                        {/* Qty & Rate */}
+                        <div className="col-span-1">
+                          <label className="block text-[10px] text-slate-500 font-medium mb-0.5">Qty</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={(e) => {
+                              const v = Number(e.target.value);
+                              setNewItems((prev) =>
+                                prev.map((it) => (it.id === item.id ? { ...it, quantity: v } : it))
+                              );
+                            }}
+                            className="w-full px-2 py-1.5 text-xs bg-white border border-slate-300 rounded font-mono text-center"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1 text-[11px] text-slate-600">
+                        <div className="flex items-center gap-2">
+                          <span>Rate (₹/sqft):</span>
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.rate}
+                            onChange={(e) => {
+                              const v = Number(e.target.value);
+                              setNewItems((prev) =>
+                                prev.map((it) => (it.id === item.id ? { ...it, rate: v } : it))
+                              );
+                            }}
+                            className="w-24 px-2 py-1 text-xs bg-white border border-slate-300 rounded font-mono font-bold"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <datalist id="presets">
+                  {STANDARD_PRESETS.map((p) => (
+                    <option key={p.name} value={p.name} />
+                  ))}
+                </datalist>
+              </div>
+
+              {/* Live Quotation Summary */}
+              <div className="p-3 bg-emerald-50/60 border border-emerald-200 rounded-xl space-y-1.5">
+                <div className="flex justify-between text-slate-600 font-medium">
+                  <span>Sub Total:</span>
+                  <span className="font-mono">{formatIndianCurrency(newQuoteCalc.subTotal)}</span>
+                </div>
+                <div className="flex justify-between text-slate-600 font-medium">
+                  <span>GST (18%):</span>
+                  <span className="font-mono">{formatIndianCurrency(newQuoteCalc.gstTotal)}</span>
+                </div>
+                <div className="flex justify-between text-base font-bold text-emerald-950 pt-1 border-t border-emerald-200">
+                  <span>Grand Total:</span>
+                  <span className="font-mono">{formatIndianCurrency(newQuoteCalc.grandTotal)}</span>
+                </div>
+              </div>
+
+              {/* Form Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setNewModalOpen(false)}
+                  className="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-lg shadow-sm transition cursor-pointer"
+                >
+                  {submitting ? "Creating..." : "Save & Create Quotation"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

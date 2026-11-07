@@ -147,8 +147,8 @@ export default function AdminUsersPage() {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link href="/" className="text-slate-500 hover:text-slate-900 text-sm font-semibold">
-              ← Back to Master Sheet
+            <Link href="/quotes" className="text-slate-500 hover:text-slate-900 text-sm font-semibold">
+              ← Back to Quotation Tracker
             </Link>
             <span className="text-slate-300">/</span>
             <h1 className="text-base font-bold text-slate-900">User Management (Admin Only)</h1>

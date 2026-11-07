@@ -88,10 +88,10 @@ export default function CustomersPage() {
             {/* Navigation links */}
             <nav className="hidden md:flex items-center gap-1 text-xs font-semibold">
               <Link
-                href="/"
+                href="/quotes"
                 className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition"
               >
-                Master Sheet
+                Quotation Tracker
               </Link>
               <Link
                 href="/quotes"

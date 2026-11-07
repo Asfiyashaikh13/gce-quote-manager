@@ -242,51 +242,14 @@ export default function PaymentsPage() {
         <div className="max-w-[98%] mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
-                GCE
+              <div className="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+                TAB 3
               </div>
               <div>
-                <h1 className="text-base font-bold text-slate-900 leading-tight">Payments & Milestones</h1>
+                <h1 className="text-base font-bold text-slate-900 leading-tight">Payment Tracker &amp; Milestones</h1>
                 <p className="text-xs text-slate-500">70/20/10 Schedule • Official Receipts • WhatsApp Reminders</p>
               </div>
             </div>
-
-            {/* Navigation links */}
-            <nav className="hidden md:flex items-center gap-1 text-xs font-semibold">
-              <Link
-                href="/"
-                className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition"
-              >
-                Master Sheet
-              </Link>
-              <Link
-                href="/quotes"
-                className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition"
-              >
-                Quotes
-              </Link>
-              <Link
-                href="/factory"
-                className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition"
-              >
-                Factory Sheet
-              </Link>
-              <Link href="/payments" className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md transition">
-                Payments
-              </Link>
-              <Link
-                href="/dashboard"
-                className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition"
-              >
-                Dashboard
-              </Link>
-              <Link
-                href="/customers"
-                className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition"
-              >
-                Customers
-              </Link>
-            </nav>
           </div>
 
           <div className="flex items-center gap-3">

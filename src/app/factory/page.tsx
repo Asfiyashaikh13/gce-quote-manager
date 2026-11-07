@@ -194,54 +194,14 @@ export default function FactoryPage() {
         <div className="max-w-[98%] mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
-                GCE
+              <div className="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+                TAB 2
               </div>
               <div>
-                <h1 className="text-base font-bold text-slate-900 leading-tight">Factory Sheet & Optimizer</h1>
-                <p className="text-xs text-slate-500">Cutting Indents • Guillotine Bin Packing • A4 Print & PDF</p>
+                <h1 className="text-base font-bold text-slate-900 leading-tight">Processing &amp; Factory WIP</h1>
+                <p className="text-xs text-slate-500">Cutting Indents • Guillotine Bin Packing • A4 Print &amp; PDF</p>
               </div>
             </div>
-
-            {/* Navigation links */}
-            <nav className="hidden xl:flex items-center gap-1 text-xs font-semibold ml-4">
-              <Link
-                href="/"
-                className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition"
-              >
-                Master Sheet
-              </Link>
-              <Link
-                href="/quotes"
-                className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition"
-              >
-                Quotes
-              </Link>
-              <Link
-                href="/factory"
-                className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md transition"
-              >
-                Factory Sheet
-              </Link>
-              <Link
-                href="/payments"
-                className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition"
-              >
-                Payments
-              </Link>
-              <Link
-                href="/dashboard"
-                className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition"
-              >
-                Dashboard
-              </Link>
-              <Link
-                href="/customers"
-                className="px-3 py-1.5 text-slate-600 hover:text-slate-900 rounded-md hover:bg-slate-100 transition"
-              >
-                Customers
-              </Link>
-            </nav>
           </div>
 
           {/* Sub-tab switcher */}
@@ -310,7 +270,7 @@ export default function FactoryPage() {
             {visibleFactories.length === 0 ? (
               <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-500">
                 <p className="text-sm font-medium">No factory cutting items found.</p>
-                <p className="text-xs text-slate-400 mt-1">Add items with dimensions in the Master Sheet first.</p>
+                <p className="text-xs text-slate-400 mt-1">Approved quotations will automatically appear here with exact cutting deductions.</p>
               </div>
             ) : (
               visibleFactories.map((factory) => (

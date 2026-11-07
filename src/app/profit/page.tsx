@@ -191,10 +191,10 @@ export default function ProfitPage() {
 
           <div className="flex items-center gap-2">
             <Link
-              href="/"
+              href="/quotes"
               className="px-3 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition"
             >
-              ← Back to Master Sheet
+              ← Back to Quotation Tracker
             </Link>
             <button
               onClick={openAddModal}
