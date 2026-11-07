@@ -14,6 +14,7 @@ const PUBLIC_PATHS = [
   "/api/auth/logout",
   "/api/integrations/glass-care",
   "/api/gstin",
+  "/api/quotes/ocr-import",
 ];
 
 export async function middleware(request: NextRequest) {

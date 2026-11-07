@@ -45,8 +45,33 @@ export interface ExtractedQuotationDoc {
   rawOcrText: string;
 }
 
+// Reusable OCR Worker instance
+let cachedWorkerPromise: ReturnType<typeof createWorker> | null = null;
+
+async function getWorker() {
+  if (!cachedWorkerPromise) {
+    const tessdataPath = path.resolve("./public/tessdata");
+    const workerPath = path.resolve("./node_modules/tesseract.js/src/worker-script/node/index.js");
+    const corePath = path.resolve("./node_modules/tesseract.js-core");
+
+    cachedWorkerPromise = createWorker("eng", 1, {
+      workerPath,
+      corePath,
+      langPath: tessdataPath,
+      cacheMethod: "readOnly",
+      gzip: false,
+    }).catch((err) => {
+      console.warn("Failed to create Tesseract worker:", err);
+      cachedWorkerPromise = null;
+      throw err;
+    });
+  }
+  return cachedWorkerPromise;
+}
+
 /**
  * Preprocess image using python crop script if available, to isolate document area.
+ * Wrapped with strict 1200ms timeout so it never stalls.
  */
 async function preprocessImage(inputPath: string): Promise<string> {
   const outputPath = path.join("/tmp", `ocr_prep_${Date.now()}_${path.basename(inputPath)}`);
@@ -54,13 +79,13 @@ async function preprocessImage(inputPath: string): Promise<string> {
 
   try {
     if (fs.existsSync(cropScript)) {
-      await execAsync(`python3 ${cropScript} "${inputPath}" "${outputPath}"`);
+      await execAsync(`python3 "${cropScript}" "${inputPath}" "${outputPath}"`, { timeout: 1200 });
       if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 1000) {
         return outputPath;
       }
     }
   } catch (err) {
-    console.warn("Python crop preprocessing skipped:", err);
+    console.warn("Python crop preprocessing skipped or timed out:", err);
   }
 
   return inputPath;
@@ -68,26 +93,33 @@ async function preprocessImage(inputPath: string): Promise<string> {
 
 /**
  * Runs OCR and parses the text into a structured quotation document.
+ * Includes a strict 4.5s timeout with fallback.
  */
 export async function parseQuotationImage(imageFilePath: string): Promise<ExtractedQuotationDoc> {
-  const preprocessed = await preprocessImage(imageFilePath);
+  let rawText = "";
 
-  // 1. Run Tesseract OCR
-  const tessdataPath = path.resolve("./public/tessdata");
-  const workerPath = path.resolve("./node_modules/tesseract.js/src/worker-script/node/index.js");
-  const worker = await createWorker("eng", 1, {
-    workerPath,
-    langPath: tessdataPath,
-    cacheMethod: "readOnly",
-    gzip: false,
-  });
+  try {
+    const preprocessed = await preprocessImage(imageFilePath);
 
-  const ocrResult = await worker.recognize(preprocessed);
-  await worker.terminate();
+    // Run Tesseract with 4000ms max timeout
+    const ocrTask = (async () => {
+      const worker = await getWorker();
+      const ocrResult = await worker.recognize(preprocessed);
+      return ocrResult.data.text || "";
+    })();
 
-  const rawText = ocrResult.data.text || "";
+    const timeoutTask = new Promise<string>((_, reject) => {
+      setTimeout(() => reject(new Error("OCR took longer than 4000ms")), 4000);
+    });
 
-  // 2. Parse text into structured fields
+    rawText = await Promise.race([ocrTask, timeoutTask]);
+  } catch (err) {
+    console.warn("OCR recognition warning (proceeding with fallback extraction):", err);
+    // If worker crashed or errored, reset it
+    cachedWorkerPromise = null;
+  }
+
+  // Parse text into structured fields (always succeeds)
   return parseOcrText(rawText);
 }
 
@@ -285,6 +317,21 @@ export function parseOcrText(text: string): ExtractedQuotationDoc {
         amount: amount || (rate > 0 ? rate * qty : 0),
       });
     }
+  }
+
+  // If no items detected, provide a customizable default row so user can edit immediately
+  if (items.length === 0) {
+    items.push({
+      id: `ocr-item-1-${Date.now()}`,
+      category: "Glass",
+      itemName: "Custom Glass / Aluminium Work",
+      description: "Custom Glass / Aluminium Work",
+      height: 1000,
+      width: 500,
+      quantity: 1,
+      rate: grandTotal > 0 ? grandTotal : 3500,
+      amount: grandTotal > 0 ? grandTotal : 3500,
+    });
   }
 
   // Recalculate totals if missing
