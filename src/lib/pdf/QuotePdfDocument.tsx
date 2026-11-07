@@ -111,10 +111,9 @@ const styles = StyleSheet.create({
   },
   wordsText: {
     fontSize: 8.5,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Helvetica-BoldOblique",
     color: "#1e3a8a",
     marginTop: 2,
-    fontStyle: "italic",
   },
   totalsTable: {
     width: "42%",

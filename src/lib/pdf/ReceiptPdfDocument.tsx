@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
   },
   wordsText: {
     fontSize: 8.5,
-    fontStyle: "italic",
+    fontFamily: "Helvetica-Oblique",
     color: "#334155",
     marginTop: 4,
     textAlign: "center",
