@@ -3,61 +3,75 @@ import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/render
 import { formatIndianCurrency } from "../calc/currency";
 import { GLASS_CARE_LOGO } from "./logoBase64";
 
+// Helper for clean PDF number formatting without WinAnsi font symbol artifacts
+function fmt(val: number | string | undefined | null): string {
+  if (val === undefined || val === null || isNaN(Number(val))) return "0.00";
+  return formatIndianCurrency(Number(val), { symbol: "", showDecimals: true, decimals: 2 });
+}
+
+function fmtTotal(val: number | string | undefined | null): string {
+  if (val === undefined || val === null || isNaN(Number(val))) return "0.00";
+  return formatIndianCurrency(Number(val), { symbol: "Rs. ", showDecimals: true, decimals: 2 });
+}
+
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 20,
-    paddingBottom: 20,
-    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 24,
+    paddingHorizontal: 28,
     fontSize: 8,
     fontFamily: "Helvetica",
     color: "#0f172a",
-    lineHeight: 1.35,
     backgroundColor: "#ffffff",
   },
+
   // Top Header Layout matching reference
   headerLayout: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 6,
+    marginBottom: 8,
   },
   brandSection: {
     flexDirection: "row",
     alignItems: "flex-start",
-    width: "58%",
+    width: "60%",
   },
   brandLogo: {
-    width: 52,
-    height: 52,
-    marginRight: 10,
+    width: 54,
+    height: 54,
+    marginRight: 12,
     objectFit: "contain",
   },
   companyDetails: {
     flexDirection: "column",
+    justifyContent: "center",
   },
   companyName: {
-    fontSize: 16,
+    fontSize: 16.5,
     fontFamily: "Helvetica-Bold",
     color: "#084a9b",
-    letterSpacing: 0.4,
+    letterSpacing: 0.3,
+    marginBottom: 2.5,
   },
   companyTagline: {
     fontSize: 7.5,
     fontFamily: "Helvetica-Bold",
     color: "#ef7625",
-    letterSpacing: 1.8,
+    letterSpacing: 1.6,
     textTransform: "uppercase",
-    marginTop: 1,
-    marginBottom: 3,
+    marginBottom: 4.5,
   },
   companyAddress: {
     fontSize: 7,
     color: "#334155",
+    marginBottom: 1.2,
     lineHeight: 1.25,
   },
   companyGstinRow: {
-    fontSize: 7.5,
+    fontSize: 7.2,
     marginTop: 2,
+    marginBottom: 1,
     color: "#0f172a",
   },
   companyGstinBold: {
@@ -72,15 +86,15 @@ const styles = StyleSheet.create({
 
   // Document Metadata (Right aligned)
   docMetaSection: {
-    width: "40%",
+    width: "38%",
     alignItems: "flex-end",
   },
   docMainTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontFamily: "Helvetica-Bold",
     color: "#084a9b",
     letterSpacing: 1.2,
-    marginBottom: 4,
+    marginBottom: 6,
     textAlign: "right",
   },
   metaTable: {
@@ -89,40 +103,42 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
-    marginBottom: 2,
+    marginBottom: 2.8,
     fontSize: 7.5,
+    alignItems: "center",
   },
   metaLabel: {
     color: "#475569",
-    width: 82,
+    width: 86,
     textAlign: "right",
     paddingRight: 6,
+    fontFamily: "Helvetica",
   },
   metaValue: {
     fontFamily: "Helvetica-Bold",
     color: "#0f172a",
-    width: 95,
+    width: 90,
     textAlign: "left",
   },
 
-  // Blue Accent Divider
+  // 2.5px Deep Navy Accent Divider
   accentDivider: {
     height: 2.5,
     backgroundColor: "#084a9b",
-    marginVertical: 6,
+    marginBottom: 9,
   },
 
   // BILL TO Box with Left Orange Border
   billToBox: {
     borderWidth: 0.75,
     borderColor: "#cbd5e1",
-    borderLeftWidth: 4,
+    borderLeftWidth: 3.5,
     borderLeftColor: "#ef7625",
     backgroundColor: "#f8fafc",
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
     borderRadius: 3,
-    marginBottom: 8,
+    marginBottom: 9,
   },
   billToHeader: {
     fontSize: 7,
@@ -130,13 +146,13 @@ const styles = StyleSheet.create({
     color: "#64748b",
     textTransform: "uppercase",
     letterSpacing: 0.8,
-    marginBottom: 1,
+    marginBottom: 2.5,
   },
   customerName: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: "Helvetica-Bold",
     color: "#084a9b",
-    marginBottom: 2,
+    marginBottom: 3,
   },
   customerGrid: {
     flexDirection: "row",
@@ -148,12 +164,13 @@ const styles = StyleSheet.create({
     width: "48%",
   },
   customerLine: {
-    marginBottom: 1,
+    marginBottom: 1.5,
+    lineHeight: 1.25,
   },
   customerGstinText: {
     fontFamily: "Helvetica-Bold",
     color: "#0f172a",
-    marginTop: 1,
+    marginTop: 1.5,
   },
 
   // Main Items Table matching reference
@@ -162,13 +179,13 @@ const styles = StyleSheet.create({
     borderColor: "#cbd5e1",
     borderRadius: 2,
     overflow: "hidden",
-    marginBottom: 8,
+    marginBottom: 9,
   },
   tableHeader: {
     flexDirection: "row",
-    backgroundColor: "#10203a",
-    paddingVertical: 4.5,
-    paddingHorizontal: 3,
+    backgroundColor: "#0f2b48",
+    paddingVertical: 5,
+    paddingHorizontal: 4,
     color: "#ffffff",
     fontFamily: "Helvetica-Bold",
     fontSize: 7,
@@ -178,9 +195,9 @@ const styles = StyleSheet.create({
   tableRow: {
     flexDirection: "row",
     borderBottomWidth: 0.5,
-    borderBottomColor: "#cbd5e1",
-    paddingVertical: 3.5,
-    paddingHorizontal: 3,
+    borderBottomColor: "#e2e8f0",
+    paddingVertical: 4.5,
+    paddingHorizontal: 4,
     fontSize: 7.2,
     alignItems: "center",
   },
@@ -189,28 +206,30 @@ const styles = StyleSheet.create({
   },
 
   colNum: { width: "4%", textAlign: "center", color: "#64748b" },
-  colDesc: { width: "37%", paddingRight: 4 },
-  colHsn: { width: "9%", textAlign: "center", color: "#475569" },
-  colQty: { width: "11%", textAlign: "center", color: "#334155" },
-  colRate: { width: "11%", textAlign: "right", color: "#334155" },
+  colDesc: { width: "38%", paddingRight: 6 },
+  colHsn: { width: "10%", textAlign: "center", color: "#475569" },
+  colQty: { width: "10%", textAlign: "center", color: "#334155" },
+  colRate: { width: "10%", textAlign: "right", color: "#334155" },
   colGstPercent: { width: "8%", textAlign: "center", color: "#475569" },
-  colGstAmt: { width: "9%", textAlign: "right", color: "#334155" },
-  colAmount: { width: "11%", textAlign: "right", fontFamily: "Helvetica-Bold", color: "#0f172a", paddingRight: 2 },
+  colGstAmt: { width: "10%", textAlign: "right", color: "#334155" },
+  colAmount: { width: "10%", textAlign: "right", fontFamily: "Helvetica-Bold", color: "#0f172a", paddingRight: 2 },
 
   itemTitle: {
     fontFamily: "Helvetica-Bold",
     color: "#084a9b",
-    fontSize: 7.6,
+    fontSize: 7.8,
+    marginBottom: 1.5,
   },
   itemSub: {
-    fontSize: 6.4,
+    fontSize: 6.5,
     color: "#475569",
-    marginTop: 0.5,
+    marginBottom: 1,
+    lineHeight: 1.2,
   },
   itemCutting: {
-    fontSize: 6.4,
+    fontSize: 6.5,
     color: "#0284c7",
-    marginTop: 0.5,
+    marginBottom: 1,
   },
 
   // Bottom 2-Column Summary Layout
@@ -218,7 +237,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 12,
-    marginBottom: 6,
+    marginBottom: 9,
   },
   bottomLeft: {
     width: "50%",
@@ -231,7 +250,8 @@ const styles = StyleSheet.create({
     borderWidth: 0.75,
     borderColor: "#cbd5e1",
     backgroundColor: "#f8fafc",
-    padding: 5,
+    paddingVertical: 5,
+    paddingHorizontal: 7,
     borderRadius: 3,
     marginBottom: 5,
   },
@@ -241,12 +261,12 @@ const styles = StyleSheet.create({
     color: "#475569",
     textTransform: "uppercase",
     letterSpacing: 0.5,
+    marginBottom: 1.5,
   },
   amountWordsText: {
     fontSize: 7.5,
     fontFamily: "Helvetica-BoldOblique",
     color: "#084a9b",
-    marginTop: 1.5,
     lineHeight: 1.3,
   },
 
@@ -254,7 +274,8 @@ const styles = StyleSheet.create({
     borderWidth: 0.75,
     borderColor: "#cbd5e1",
     backgroundColor: "#ffffff",
-    padding: 5,
+    paddingVertical: 5,
+    paddingHorizontal: 7,
     borderRadius: 3,
     marginBottom: 5,
   },
@@ -262,21 +283,22 @@ const styles = StyleSheet.create({
     fontSize: 6.8,
     fontFamily: "Helvetica-Bold",
     color: "#084a9b",
-    marginBottom: 2,
+    marginBottom: 2.5,
     textTransform: "uppercase",
   },
   termLine: {
     fontSize: 5.8,
     color: "#334155",
-    marginBottom: 1,
-    lineHeight: 1.2,
+    marginBottom: 1.2,
+    lineHeight: 1.22,
   },
 
   bankCard: {
     borderWidth: 0.75,
     borderColor: "#cbd5e1",
     backgroundColor: "#f8fafc",
-    padding: 5,
+    paddingVertical: 5,
+    paddingHorizontal: 7,
     borderRadius: 3,
   },
   bankTitle: {
@@ -290,6 +312,7 @@ const styles = StyleSheet.create({
     fontSize: 6.2,
     color: "#334155",
     marginBottom: 1,
+    lineHeight: 1.22,
   },
 
   // Structured Totals Table
@@ -302,11 +325,12 @@ const styles = StyleSheet.create({
   totalsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 2.5,
-    paddingHorizontal: 6,
+    paddingVertical: 3,
+    paddingHorizontal: 7,
     borderBottomWidth: 0.5,
-    borderBottomColor: "#cbd5e1",
+    borderBottomColor: "#e2e8f0",
     fontSize: 7.2,
+    alignItems: "center",
   },
   totalsRowLabel: {
     color: "#334155",
@@ -321,13 +345,13 @@ const styles = StyleSheet.create({
   grandTotalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#fff7ed",
     borderTopWidth: 2,
     borderTopColor: "#ef7625",
     borderBottomWidth: 2,
     borderBottomColor: "#ef7625",
-    paddingVertical: 4.5,
-    paddingHorizontal: 6,
+    paddingVertical: 5,
+    paddingHorizontal: 7,
     alignItems: "center",
   },
   grandTotalLabel: {
@@ -345,9 +369,10 @@ const styles = StyleSheet.create({
   balanceRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 2.5,
-    paddingHorizontal: 6,
+    paddingVertical: 3,
+    paddingHorizontal: 7,
     fontSize: 7.2,
+    alignItems: "center",
   },
 
   // Signature Block
@@ -355,7 +380,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-end",
-    marginTop: 4,
+    marginTop: 8,
     paddingTop: 4,
   },
   sigThanks: {
@@ -372,13 +397,13 @@ const styles = StyleSheet.create({
     fontSize: 8.5,
     fontFamily: "Helvetica-Bold",
     color: "#0f172a",
-    marginBottom: 20,
+    marginBottom: 18,
   },
   sigLineText: {
     width: 120,
     borderTopWidth: 1.2,
     borderTopColor: "#0f172a",
-    paddingTop: 2,
+    paddingTop: 2.5,
     fontSize: 6.8,
     color: "#475569",
     textAlign: "center",
@@ -462,7 +487,10 @@ export function QuotePdfDocument({ quote, settings, hideCuttingSizes = false }: 
     settings?.terms ||
     `1. Order once confirmed will not be taken back or exchanged.\n2. Any complaint related to processing quality should be informed at time of unloading duly remarked on DC.\n3. All disputes shall be subject to Bangalore jurisdiction only.\n4. Initial payment 70% of gross price to be paid at the time of ordering.\n5. Interim payment 20% of gross price on delivery pallet glass & material of the goods to be used for the work.\n6. Final payment 10% of gross price on completion of works.`;
 
-  const termsLines = termsString.split("\n").filter((t) => t.trim().length > 0);
+  const termsLines = termsString
+    .split("\n")
+    .map((t) => t.trim().replace(/^(\d+)[\]\)]\s*/, "$1. "))
+    .filter((t) => t.length > 0);
 
   // Document Type Header matching reference
   const num = (quote.quoteNumber || "").toUpperCase();
@@ -560,7 +588,7 @@ export function QuotePdfDocument({ quote, settings, hideCuttingSizes = false }: 
               {quote.customerFlat ? (
                 <Text style={styles.customerLine}>{quote.customerFlat}</Text>
               ) : null}
-              {quote.customerAddress && quote.customerAddress !== quote.customerFlat ? (
+              {quote.customerAddress && quote.customerAddress !== quote.customerFlat && !quote.customerAddress.includes(quote.customerFlat || "") ? (
                 <Text style={styles.customerLine}>{quote.customerAddress}</Text>
               ) : null}
               <Text style={styles.customerLine}>
@@ -574,7 +602,7 @@ export function QuotePdfDocument({ quote, settings, hideCuttingSizes = false }: 
             </View>
             <View style={styles.customerCol}>
               {quote.customerBuilding ? (
-                <Text style={styles.customerLine}>{quote.customerBuilding}</Text>
+                <Text style={styles.customerLine}>Project: {quote.customerBuilding}</Text>
               ) : null}
               <Text style={styles.customerLine}>
                 Phone: {quote.customerPhone ? quote.customerPhone : "—"}
@@ -618,6 +646,9 @@ export function QuotePdfDocument({ quote, settings, hideCuttingSizes = false }: 
                       Original size: {it.frameHeightMm} × {it.frameWidthMm} mm
                     </Text>
                   ) : null}
+                  {it.quantity > 0 ? (
+                    <Text style={styles.itemSub}>Pcs: {it.quantity}</Text>
+                  ) : null}
                   {it.sqft > 0 ? (
                     <Text style={styles.itemSub}>Measure: {it.sqft.toFixed(3)} Sqft</Text>
                   ) : null}
@@ -631,10 +662,10 @@ export function QuotePdfDocument({ quote, settings, hideCuttingSizes = false }: 
                 <Text style={styles.colQty}>
                   {it.sqft > 0 ? `${it.sqft.toFixed(3)} Sqft` : `${it.quantity} Pcs`}
                 </Text>
-                <Text style={styles.colRate}>{it.rate.toFixed(2)}</Text>
+                <Text style={styles.colRate}>{fmt(it.rate)}</Text>
                 <Text style={styles.colGstPercent}>18%</Text>
-                <Text style={styles.colGstAmt}>{formatIndianCurrency(it.gstAmount)}</Text>
-                <Text style={styles.colAmount}>{formatIndianCurrency(it.netAmount || (it.rate * it.sqft))}</Text>
+                <Text style={styles.colGstAmt}>{fmt(it.gstAmount)}</Text>
+                <Text style={styles.colAmount}>{fmt(it.netAmount || (it.rate * it.sqft))}</Text>
               </View>
             );
           })}
@@ -677,36 +708,36 @@ export function QuotePdfDocument({ quote, settings, hideCuttingSizes = false }: 
             <View style={styles.totalsTable}>
               <View style={styles.totalsRow}>
                 <Text style={styles.totalsRowLabel}>Sub Total</Text>
-                <Text style={styles.totalsRowVal}>{formatIndianCurrency(quote.subTotal)}</Text>
+                <Text style={styles.totalsRowVal}>{fmt(quote.subTotal)}</Text>
               </View>
 
               {isKarnataka ? (
                 <>
                   <View style={styles.totalsRow}>
                     <Text style={styles.totalsRowLabel}>CGST (9%)</Text>
-                    <Text style={styles.totalsRowVal}>{formatIndianCurrency(quote.cgstTotal)}</Text>
+                    <Text style={styles.totalsRowVal}>{fmt(quote.cgstTotal)}</Text>
                   </View>
                   <View style={styles.totalsRow}>
                     <Text style={styles.totalsRowLabel}>SGST (9%)</Text>
-                    <Text style={styles.totalsRowVal}>{formatIndianCurrency(quote.sgstTotal)}</Text>
+                    <Text style={styles.totalsRowVal}>{fmt(quote.sgstTotal)}</Text>
                   </View>
                 </>
               ) : (
                 <View style={styles.totalsRow}>
                   <Text style={styles.totalsRowLabel}>IGST (18%)</Text>
-                  <Text style={styles.totalsRowVal}>{formatIndianCurrency(quote.igstTotal || quote.gstTotal)}</Text>
+                  <Text style={styles.totalsRowVal}>{fmt(quote.igstTotal || quote.gstTotal)}</Text>
                 </View>
               )}
 
               <View style={styles.totalsRow}>
                 <Text style={styles.totalsRowLabel}>Rounding</Text>
-                <Text style={styles.totalsRowVal}>{formatIndianCurrency(quote.roundOff)}</Text>
+                <Text style={styles.totalsRowVal}>{fmt(quote.roundOff)}</Text>
               </View>
 
               {/* Total Row with Signature Orange Borders */}
               <View style={styles.grandTotalRow}>
                 <Text style={styles.grandTotalLabel}>Total</Text>
-                <Text style={styles.grandTotalVal}>{formatIndianCurrency(quote.displayTotal)}</Text>
+                <Text style={styles.grandTotalVal}>{fmtTotal(quote.displayTotal)}</Text>
               </View>
 
               <View style={styles.totalsRow}>
@@ -723,7 +754,7 @@ export function QuotePdfDocument({ quote, settings, hideCuttingSizes = false }: 
 
               <View style={styles.totalsRow}>
                 <Text style={styles.totalsRowLabel}>Payment Made</Text>
-                <Text style={styles.totalsRowVal}>{formatIndianCurrency(totalPaid)}</Text>
+                <Text style={styles.totalsRowVal}>{fmt(totalPaid)}</Text>
               </View>
 
               <View style={styles.balanceRow}>
@@ -731,7 +762,7 @@ export function QuotePdfDocument({ quote, settings, hideCuttingSizes = false }: 
                   Balance Due
                 </Text>
                 <Text style={[styles.totalsRowVal, { fontSize: 8.5 }]}>
-                  {formatIndianCurrency(balanceDue)}
+                  {fmt(balanceDue)}
                 </Text>
               </View>
             </View>
