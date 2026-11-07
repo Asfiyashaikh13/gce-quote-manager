@@ -62,6 +62,7 @@ export default function QuotesListPage() {
   const [newBuilding, setNewBuilding] = useState("");
   const [newFlat, setNewFlat] = useState("");
   const [newPhone, setNewPhone] = useState("");
+  const [newFactory, setNewFactory] = useState("Veera Glass");
   const [newState, setNewState] = useState("Karnataka");
   const [newFreight, setNewFreight] = useState(0);
   const [newDiscountType, setNewDiscountType] = useState<"NONE" | "PERCENT" | "FLAT">("NONE");
@@ -208,6 +209,7 @@ export default function QuotesListPage() {
           customerBuilding: newBuilding.trim(),
           customerFlat: newFlat.trim(),
           customerPhone: newPhone.trim(),
+          factoryName: newFactory,
           destinationState: newState,
           freight: Number(newFreight) || 0,
           discountType: newDiscountType,
@@ -687,6 +689,18 @@ export default function QuotesListPage() {
                     placeholder="e.g. 7411415842"
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Assigned Factory (WIP)</label>
+                  <select
+                    value={newFactory}
+                    onChange={(e) => setNewFactory(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white font-medium"
+                  >
+                    <option value="Veera Glass">Veera Glass (Main)</option>
+                    <option value="Wender Sachin">Wender Sachin</option>
+                  </select>
                 </div>
               </div>
 

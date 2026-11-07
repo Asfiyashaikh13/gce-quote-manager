@@ -84,6 +84,7 @@ export async function POST(request: Request) {
       customerAddress,
       destinationState,
       factoryId,
+      factoryName,
       items,
       freight = 0,
       discountType = "NONE",
@@ -92,6 +93,21 @@ export async function POST(request: Request) {
 
     if (!customerName || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: "Customer name and line items are required" }, { status: 400 });
+    }
+
+    // Resolve factory
+    let finalFactoryId = factoryId || null;
+    if (!finalFactoryId && factoryName) {
+      const match = await prisma.factory.findFirst({
+        where: { name: { contains: factoryName } },
+      });
+      if (match) finalFactoryId = match.id;
+    }
+    if (!finalFactoryId) {
+      const defaultFact = await prisma.factory.findFirst({
+        where: { name: { contains: "Veera" } },
+      });
+      if (defaultFact) finalFactoryId = defaultFact.id;
     }
 
     // Generate unique stable quote number QT-DDMMYY-NN
@@ -134,7 +150,7 @@ export async function POST(request: Request) {
         customerAddress: customerAddress || "",
         customerState: state,
         destinationState: state,
-        factoryId: factoryId || null,
+        factoryId: finalFactoryId,
         discountType: discountType as DiscountType,
         discountValue,
         freight,
