@@ -297,25 +297,56 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getSession();
-  if (session && !canEditQuotes(session.role)) {
-    return NextResponse.json({ error: "Forbidden: Read-only access" }, { status: 403 });
-  }
-
   try {
+    const session = await getSession();
+    if (session && !canEditQuotes(session.role)) {
+      return NextResponse.json({ error: "Forbidden: Read-only access" }, { status: 403 });
+    }
+
     const { id } = await params;
-    await prisma.quote.update({
-      where: { id },
-      data: {
-        deletedAt: new Date(),
-        updatedById: session?.id || null,
+    const { searchParams } = new URL(request.url);
+    const permanent = searchParams.get("permanent") === "true";
+
+    // Support lookup by either primary ID or quoteNumber
+    const existing = await prisma.quote.findFirst({
+      where: {
+        OR: [{ id }, { quoteNumber: id }],
       },
+      select: { id: true, quoteNumber: true },
     });
 
-    return NextResponse.json({ success: true });
+    if (!existing) {
+      return NextResponse.json({ error: "Quotation not found or already deleted" }, { status: 404 });
+    }
+
+    if (permanent) {
+      // Hard delete cascade
+      await prisma.quoteItem.deleteMany({ where: { quoteId: existing.id } });
+      await prisma.payment.deleteMany({ where: { quoteId: existing.id } });
+      await prisma.quote.delete({ where: { id: existing.id } });
+    } else {
+      // Safe soft delete
+      await prisma.quote.update({
+        where: { id: existing.id },
+        data: {
+          deletedAt: new Date(),
+        },
+      });
+
+      // Also mark linked payments as deleted
+      await prisma.payment.updateMany({
+        where: { quoteId: existing.id },
+        data: { deletedAt: new Date() },
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `Quotation ${existing.quoteNumber} deleted successfully`,
+    });
   } catch (error) {
     console.error("DELETE /api/quotes/[id] error:", error);
-    return NextResponse.json({ error: "Failed to delete quote" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to delete quote", details: String(error) }, { status: 500 });
   }
 }
 

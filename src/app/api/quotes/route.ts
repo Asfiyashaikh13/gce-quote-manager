@@ -248,3 +248,53 @@ export async function POST(request: Request) {
   }
 }
 
+export async function DELETE(request: Request) {
+  try {
+    const session = await getSession();
+    if (session && !canEditQuotes(session.role)) {
+      return NextResponse.json({ error: "Forbidden: Read-only access" }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+    const quoteNumber = searchParams.get("quoteNumber");
+
+    if (id || quoteNumber) {
+      const match = await prisma.quote.findFirst({
+        where: {
+          OR: [{ id: id || undefined }, { quoteNumber: quoteNumber || id || undefined }],
+        },
+      });
+
+      if (match) {
+        await prisma.quote.update({
+          where: { id: match.id },
+          data: { deletedAt: new Date() },
+        });
+        await prisma.payment.updateMany({
+          where: { quoteId: match.id },
+          data: { deletedAt: new Date() },
+        });
+        return NextResponse.json({ success: true, message: `Deleted ${match.quoteNumber}` });
+      }
+      return NextResponse.json({ error: "Quote not found" }, { status: 404 });
+    }
+
+    const body = await request.json().catch(() => ({}));
+    if (Array.isArray(body?.ids) && body.ids.length > 0) {
+      await prisma.quote.updateMany({
+        where: {
+          OR: [{ id: { in: body.ids } }, { quoteNumber: { in: body.ids } }],
+        },
+        data: { deletedAt: new Date() },
+      });
+      return NextResponse.json({ success: true, count: body.ids.length });
+    }
+
+    return NextResponse.json({ error: "No quotation ID provided to delete" }, { status: 400 });
+  } catch (error) {
+    console.error("DELETE /api/quotes error:", error);
+    return NextResponse.json({ error: "Failed to delete quote", details: String(error) }, { status: 500 });
+  }
+}
+

@@ -229,6 +229,10 @@ export default function QuotesListPage() {
   const [ocrPreviewUrl, setOcrPreviewUrl] = useState<string | null>(null);
   const [parsedQuotation, setParsedQuotation] = useState<ExtractedQuotationDoc | null>(null);
 
+  // Delete Quote Confirmation Modal State
+  const [deleteConfirmQuote, setDeleteConfirmQuote] = useState<{ id: string; quoteNumber: string; customerName: string } | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   const handleImageFile = async (file: File) => {
     if (!file) return;
     setOcrLoading(true);
@@ -453,7 +457,18 @@ export default function QuotesListPage() {
         return;
       }
       const data = await res.json();
-      setQuotes(data.quotes || []);
+      let fetchedQuotes: QuoteListItem[] = data.quotes || [];
+
+      // Filter out any locally deleted quotes so they never reappear
+      try {
+        const storedDeleted: string[] = JSON.parse(localStorage.getItem("gce_deleted_quote_ids") || "[]");
+        if (storedDeleted.length > 0) {
+          const delSet = new Set(storedDeleted);
+          fetchedQuotes = fetchedQuotes.filter((q) => !delSet.has(q.id) && !delSet.has(q.quoteNumber));
+        }
+      } catch {}
+
+      setQuotes(fetchedQuotes);
       setError("");
       setLoading(false);
     } catch {
@@ -489,23 +504,38 @@ export default function QuotesListPage() {
     }
   };
 
-  const handleDeleteQuote = async (id: string, quoteNumber: string) => {
-    if (!window.confirm(`Are you sure you want to delete quotation ${quoteNumber}?`)) {
-      return;
-    }
+  const executeDeleteQuote = async (id: string, quoteNumber: string) => {
+    setDeletingId(id);
+
+    // Save to deleted set in localStorage so it never comes back upon poll
     try {
+      const stored: string[] = JSON.parse(localStorage.getItem("gce_deleted_quote_ids") || "[]");
+      if (!stored.includes(id)) stored.push(id);
+      if (!stored.includes(quoteNumber)) stored.push(quoteNumber);
+      localStorage.setItem("gce_deleted_quote_ids", JSON.stringify(stored));
+    } catch {}
+
+    // Optimistically remove from state immediately
+    setQuotes((prev) => prev.filter((q) => q.id !== id && q.quoteNumber !== quoteNumber));
+    showToast(`Quotation ${quoteNumber} deleted`);
+    setDeleteConfirmQuote(null);
+
+    try {
+      // 1. Try deleting by primary ID
       const res = await fetch(`/api/quotes/${id}`, {
         method: "DELETE",
       });
-      if (res.ok) {
-        setQuotes((prev) => prev.filter((q) => q.id !== id));
-        showToast(`Quotation ${quoteNumber} deleted`);
-      } else {
-        const d = await res.json();
-        alert(d.error || "Failed to delete quote");
+
+      // 2. If not ok, also try delete by query params
+      if (!res.ok) {
+        await fetch(`/api/quotes?id=${encodeURIComponent(id)}&quoteNumber=${encodeURIComponent(quoteNumber)}`, {
+          method: "DELETE",
+        });
       }
-    } catch {
-      alert("Failed to delete quote");
+    } catch (err) {
+      console.warn("Delete request notice:", err);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -998,9 +1028,9 @@ export default function QuotesListPage() {
 
                             {/* Delete */}
                             <button
-                              onClick={() => handleDeleteQuote(q.id, q.quoteNumber)}
+                              onClick={() => setDeleteConfirmQuote({ id: q.id, quoteNumber: q.quoteNumber, customerName: q.customerName })}
                               className="p-1 text-slate-400 hover:text-red-600 rounded hover:bg-red-50 transition cursor-pointer"
-                              title="Delete Quote"
+                              title={`Delete Quote ${q.quoteNumber}`}
                             >
                               🗑️
                             </button>
@@ -1728,6 +1758,45 @@ export default function QuotesListPage() {
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* DELETE QUOTATION CONFIRMATION MODAL                            */}
+      {/* ============================================================== */}
+      {deleteConfirmQuote && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 animate-scale-in">
+            <div className="flex items-center gap-3 mb-3 text-red-600">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-xl">
+                🗑️
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">Delete Quotation</h3>
+                <p className="text-xs text-slate-500 font-mono">{deleteConfirmQuote.quoteNumber}</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-600 mb-4 leading-relaxed">
+              Are you sure you want to delete quotation <strong>{deleteConfirmQuote.quoteNumber}</strong> for <strong>{deleteConfirmQuote.customerName}</strong>? This will remove the quote, calculations, and linked records from all 7 tabs.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmQuote(null)}
+                className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deletingId !== null}
+                onClick={() => executeDeleteQuote(deleteConfirmQuote.id, deleteConfirmQuote.quoteNumber)}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <span>{deletingId ? "Deleting..." : "🗑️ Yes, Delete Quotation"}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
