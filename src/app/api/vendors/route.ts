@@ -77,6 +77,30 @@ export async function POST(request: Request) {
       });
     }
 
+    // Automatically sync to Factory table so it appears in Quotation and Factory WIP tabs
+    try {
+      const existingFactory = await prisma.factory.findFirst({
+        where: { name: { equals: data.name }, deletedAt: null },
+      });
+      if (!existingFactory) {
+        const code = data.name
+          .split(" ")
+          .map((w: string) => w[0])
+          .join("")
+          .toUpperCase()
+          .slice(0, 4) || "VND";
+        await prisma.factory.create({
+          data: {
+            name: data.name,
+            code,
+            phone: data.mobile,
+          },
+        });
+      }
+    } catch (fErr) {
+      console.warn("Could not sync factory for vendor:", fErr);
+    }
+
     return NextResponse.json({
       success: true,
       vendor: {

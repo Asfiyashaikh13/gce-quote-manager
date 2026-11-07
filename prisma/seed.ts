@@ -75,17 +75,17 @@ async function main() {
     },
   });
 
-  const factoryWender = await prisma.factory.upsert({
+  const factorySachin = await prisma.factory.upsert({
     where: { id: "factory-wender-sachin" },
-    update: { name: "Wender Sachin" },
+    update: { name: "Vendor Sachin" },
     create: {
       id: "factory-wender-sachin",
-      name: "Wender Sachin",
-      code: "WS",
+      name: "Vendor Sachin",
+      code: "VS",
       createdById: admin.id,
     },
   });
-  console.log(`Seeded factories: ${factoryVeera.name}, ${factoryWender.name}`);
+  console.log(`Seeded factories: ${factoryVeera.name}, ${factorySachin.name}`);
 
   // 4. Create Products
   const productsData = [
@@ -514,7 +514,7 @@ async function main() {
       notes: "Main glass processor for Manyata & Hebbal sites",
     },
     {
-      name: "Wender Sachin",
+      name: "Vendor Sachin",
       mobile: "9886098765",
       workType: "Aluminium Profiles & Fabrication",
       rate: "₹430/sqft",

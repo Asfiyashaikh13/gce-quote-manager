@@ -95,13 +95,52 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Customer name and line items are required" }, { status: 400 });
     }
 
-    // Resolve factory
+    // Resolve or dynamically create factory
     let finalFactoryId = factoryId || null;
-    if (!finalFactoryId && factoryName) {
+    if (!finalFactoryId && factoryName && typeof factoryName === "string" && factoryName.trim()) {
+      const cleanFactoryName = factoryName.trim();
       const match = await prisma.factory.findFirst({
-        where: { name: { contains: factoryName } },
+        where: {
+          name: { equals: cleanFactoryName },
+          deletedAt: null,
+        },
       });
-      if (match) finalFactoryId = match.id;
+      if (match) {
+        finalFactoryId = match.id;
+      } else {
+        // Dynamically create new factory & vendor so it persists everywhere
+        const code = cleanFactoryName
+          .split(" ")
+          .map((w: string) => w[0])
+          .join("")
+          .toUpperCase()
+          .slice(0, 4) || "VND";
+        const newFact = await prisma.factory.create({
+          data: {
+            name: cleanFactoryName,
+            code,
+            phone: customerPhone?.trim() || null,
+          },
+        });
+        finalFactoryId = newFact.id;
+
+        // Also ensure vendor record exists in Tab 4
+        const vendorExists = await prisma.vendor.findFirst({
+          where: { name: { equals: cleanFactoryName }, deletedAt: null },
+        });
+        if (!vendorExists) {
+          await prisma.vendor.create({
+            data: {
+              name: cleanFactoryName,
+              workType: "Factory Processing / Material Supply",
+              rate: "As per order",
+              balanceDue: 0,
+              status: "RECEIVED",
+              notes: "Created during quotation",
+            },
+          });
+        }
+      }
     }
     if (!finalFactoryId) {
       const defaultFact = await prisma.factory.findFirst({

@@ -41,7 +41,7 @@ A full-stack enterprise quotation management, pricing calculation engine, factor
 - **Excel Export**: Instant `.xlsx` download formatted for customer quotations.
 
 ### 3. Factory Sheet & Guillotine Cutting Optimizer (`/factory`)
-- **Factory Cutting Indent**: Rows grouped by Factory (Veera Glass, Wender Sachin) and sub-grouped by Glass Type / Thickness.
+- **Factory Cutting Indent**: Rows grouped by Factory (Veera Glass, Vendor Sachin) and sub-grouped by Glass Type / Thickness.
 - **A4 Printable View**: Dedicated print stylesheet (`@media print`) and downloadable PDF cutting indent.
 - **Copy for WhatsApp**: 1-click formatted plain-text cutting indent for glass processors.
 - **2D Guillotine Bin Packing Optimizer (`src/lib/optimizer/guillotine.ts`)**:

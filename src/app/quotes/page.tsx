@@ -63,6 +63,13 @@ export default function QuotesListPage() {
   const [newFlat, setNewFlat] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [newFactory, setNewFactory] = useState("Veera Glass");
+  const [factories, setFactories] = useState<Array<{ id: string; name: string }>>([
+    { id: "f1", name: "Veera Glass" },
+    { id: "f2", name: "Vendor Sachin" },
+  ]);
+  const [isCustomFactory, setIsCustomFactory] = useState(false);
+  const [customFactoryName, setCustomFactoryName] = useState("");
+  const [isSavingNewFactory, setIsSavingNewFactory] = useState(false);
   const [newState, setNewState] = useState("Karnataka");
   const [newFreight, setNewFreight] = useState(0);
   const [newDiscountType, setNewDiscountType] = useState<"NONE" | "PERCENT" | "FLAT">("NONE");
@@ -131,6 +138,51 @@ export default function QuotesListPage() {
     setTimeout(() => setToastMsg(null), 3500);
   };
 
+  const loadFactories = async () => {
+    try {
+      const res = await fetch("/api/factories");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.factories && Array.isArray(data.factories) && data.factories.length > 0) {
+          setFactories(data.factories);
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to load factories:", err);
+    }
+  };
+
+  const handleQuickSaveFactory = async () => {
+    if (!customFactoryName.trim()) return;
+    setIsSavingNewFactory(true);
+    try {
+      const res = await fetch("/api/factories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: customFactoryName.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok && data.factory) {
+        setFactories((prev) => {
+          if (prev.some((f) => f.name.toLowerCase() === data.factory.name.toLowerCase())) {
+            return prev;
+          }
+          return [...prev, data.factory].sort((a, b) => a.name.localeCompare(b.name));
+        });
+        setNewFactory(data.factory.name);
+        setIsCustomFactory(false);
+        setCustomFactoryName("");
+        showToast(`Vendor "${data.factory.name}" saved!`);
+      } else {
+        alert(data.error || "Failed to save vendor");
+      }
+    } catch {
+      alert("Failed to save vendor");
+    } finally {
+      setIsSavingNewFactory(false);
+    }
+  };
+
   const loadQuotes = async () => {
     try {
       const params = new URLSearchParams();
@@ -154,6 +206,7 @@ export default function QuotesListPage() {
 
   useEffect(() => {
     loadQuotes();
+    loadFactories();
     // Auto-poll every 3 seconds so live webhooks from Glass Care reflect on-screen automatically
     const interval = setInterval(loadQuotes, 3000);
     return () => clearInterval(interval);
@@ -251,6 +304,10 @@ export default function QuotesListPage() {
     }
     setSubmitting(true);
     try {
+      const chosenFactory = isCustomFactory && customFactoryName.trim()
+        ? customFactoryName.trim()
+        : newFactory;
+
       const res = await fetch("/api/quotes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -259,7 +316,7 @@ export default function QuotesListPage() {
           customerBuilding: newBuilding.trim(),
           customerFlat: newFlat.trim(),
           customerPhone: newPhone.trim(),
-          factoryName: newFactory,
+          factoryName: chosenFactory,
           destinationState: newState,
           freight: Number(newFreight) || 0,
           discountType: newDiscountType,
@@ -278,6 +335,9 @@ export default function QuotesListPage() {
       if (res.ok && data.quote) {
         showToast(`Quotation ${data.quote.quoteNumber} created successfully!`);
         setNewModalOpen(false);
+        setIsCustomFactory(false);
+        setCustomFactoryName("");
+        loadFactories();
         // Reset form
         setNewCustomerName("");
         setNewBuilding("");
@@ -359,7 +419,10 @@ export default function QuotesListPage() {
               <span>Glass Care Sync</span>
             </button>
             <button
-              onClick={() => setNewModalOpen(true)}
+              onClick={() => {
+                loadFactories();
+                setNewModalOpen(true);
+              }}
               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
             >
               <span>+</span>
@@ -750,15 +813,67 @@ export default function QuotesListPage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Assigned Factory (WIP)</label>
-                  <select
-                    value={newFactory}
-                    onChange={(e) => setNewFactory(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white font-medium"
-                  >
-                    <option value="Veera Glass">Veera Glass (Main)</option>
-                    <option value="Wender Sachin">Wender Sachin</option>
-                  </select>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-semibold text-slate-700">Assigned Factory (WIP)</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCustomFactory(!isCustomFactory);
+                        setCustomFactoryName("");
+                      }}
+                      className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      {isCustomFactory ? "← Choose from saved list" : "➕ Type New Vendor"}
+                    </button>
+                  </div>
+
+                  {isCustomFactory ? (
+                    <div className="space-y-1.5">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={customFactoryName}
+                          onChange={(e) => setCustomFactoryName(e.target.value)}
+                          placeholder="Type new vendor name (e.g. Vendor Sachin, Sri Balaji Glass)..."
+                          className="flex-1 px-3 py-2 border border-emerald-400 bg-emerald-50/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-slate-800 text-sm"
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          disabled={!customFactoryName.trim() || isSavingNewFactory}
+                          onClick={handleQuickSaveFactory}
+                          className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer disabled:opacity-50"
+                        >
+                          {isSavingNewFactory ? "Saving..." : "Save Vendor"}
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-slate-500">
+                        💡 You can insert any vendor name. It saves permanently across all tabs (Tab 1 Quotes, Tab 2 WIP &amp; Tab 4 Vendors).
+                      </p>
+                    </div>
+                  ) : (
+                    <select
+                      value={newFactory}
+                      onChange={(e) => {
+                        if (e.target.value === "__NEW__") {
+                          setIsCustomFactory(true);
+                          setCustomFactoryName("");
+                        } else {
+                          setNewFactory(e.target.value);
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white font-medium text-slate-800 text-sm"
+                    >
+                      {factories.map((f) => (
+                        <option key={f.id} value={f.name}>
+                          {f.name}
+                        </option>
+                      ))}
+                      <option value="__NEW__" className="text-emerald-700 font-semibold">
+                        ➕ + Add / Type New Vendor...
+                      </option>
+                    </select>
+                  )}
                 </div>
               </div>
 

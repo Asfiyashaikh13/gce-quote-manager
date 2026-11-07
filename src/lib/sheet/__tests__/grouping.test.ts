@@ -261,7 +261,7 @@ describe("groupRowsByCustomer", () => {
         flat: "202",
         building: "Tower 2",
         state: "Karnataka",
-        factory: "Wender Sachin",
+        factory: "Vendor Sachin",
         status: "Draft",
         notes: "",
         productId: "",

@@ -23,7 +23,7 @@ Based on user request and infographic specification (`ROYAL WORLD - GOOGLE SHEET
 
 ### Tab 4: Vendor List (`/vendors`)
 - **Fields**: Vendor Name, Mobile, Kaam (Specialty Work), Rate, Payment Dena Hai (Payable Balance), Status.
-- Seeded with Veera Glass (Toughening ₹135/sqft), Wender Sachin (Profiles ₹430/sqft), and Royal Marble Works (Marble Inlay ₹250/sqft).
+- Seeded with Veera Glass (Toughening ₹135/sqft), Vendor Sachin (Profiles ₹430/sqft), and Royal Marble Works (Marble Inlay ₹250/sqft).
 
 ### Tab 5: Purchase / Expense Tracker (`/expenses`)
 - **Fields**: Date, Item, Amount, Vendor, Cash / UPI, GST Bill Hai? (Yes/No), Status.
@@ -114,7 +114,7 @@ Based on user request and infographic specification (`ROYAL WORLD - GOOGLE SHEET
 
 ### Tab 4: Vendor List (`/vendors`)
 - **Fields**: Vendor Name, Mobile, Kaam (Specialty Work), Rate, Payment Dena Hai (Payable Balance), Status.
-- Seeded with Veera Glass (Toughening ₹135/sqft), Wender Sachin (Profiles ₹430/sqft), and Royal Marble Works (Marble Inlay ₹250/sqft).
+- Seeded with Veera Glass (Toughening ₹135/sqft), Vendor Sachin (Profiles ₹430/sqft), and Royal Marble Works (Marble Inlay ₹250/sqft).
 
 ### Tab 5: Purchase / Expense Tracker (`/expenses`)
 - **Fields**: Date, Item, Amount, Vendor, Cash / UPI, GST Bill Hai? (Yes/No), Status.
@@ -175,7 +175,7 @@ Based on user request and infographic specification (`ROYAL WORLD - GOOGLE SHEET
 
 ### Tab 4: Vendor List (`/vendors`)
 - **Fields**: Vendor Name, Mobile, Kaam (Specialty Work), Rate, Payment Dena Hai (Payable Balance), Status.
-- Seeded with Veera Glass (Toughening ₹135/sqft), Wender Sachin (Profiles ₹430/sqft), and Royal Marble Works (Marble Inlay ₹250/sqft).
+- Seeded with Veera Glass (Toughening ₹135/sqft), Vendor Sachin (Profiles ₹430/sqft), and Royal Marble Works (Marble Inlay ₹250/sqft).
 
 ### Tab 5: Purchase / Expense Tracker (`/expenses`)
 - **Fields**: Date, Item, Amount, Vendor, Cash / UPI, GST Bill Hai? (Yes/No), Status.
@@ -205,7 +205,7 @@ Based on user request and infographic specification (`ROYAL WORLD - GOOGLE SHEET
 ## 3. Seed Data
 
 - **Admin User**: `admin@gce.local` (password `Admin@123` hashed with bcrypt).
-- **Factories**: `Veera Glass`, `Wender Sachin`.
+- **Factories**: `Veera Glass`, `Vendor Sachin`.
 - **Products**:
   - `Al Shutters 565` (rate: ₹565/sqft, HSN: 7610, GST: 18%)
   - `Al Shutters 430` (rate: ₹430/sqft, HSN: 7610, GST: 18%)
@@ -241,7 +241,7 @@ Based on user request and infographic specification (`ROYAL WORLD - GOOGLE SHEET
 
 ### Tab 4: Vendor List (`/vendors`)
 - **Fields**: Vendor Name, Mobile, Kaam (Specialty Work), Rate, Payment Dena Hai (Payable Balance), Status.
-- Seeded with Veera Glass (Toughening ₹135/sqft), Wender Sachin (Profiles ₹430/sqft), and Royal Marble Works (Marble Inlay ₹250/sqft).
+- Seeded with Veera Glass (Toughening ₹135/sqft), Vendor Sachin (Profiles ₹430/sqft), and Royal Marble Works (Marble Inlay ₹250/sqft).
 
 ### Tab 5: Purchase / Expense Tracker (`/expenses`)
 - **Fields**: Date, Item, Amount, Vendor, Cash / UPI, GST Bill Hai? (Yes/No), Status.
@@ -302,7 +302,7 @@ Based on user request and infographic specification (`ROYAL WORLD - GOOGLE SHEET
 
 ### Tab 4: Vendor List (`/vendors`)
 - **Fields**: Vendor Name, Mobile, Kaam (Specialty Work), Rate, Payment Dena Hai (Payable Balance), Status.
-- Seeded with Veera Glass (Toughening ₹135/sqft), Wender Sachin (Profiles ₹430/sqft), and Royal Marble Works (Marble Inlay ₹250/sqft).
+- Seeded with Veera Glass (Toughening ₹135/sqft), Vendor Sachin (Profiles ₹430/sqft), and Royal Marble Works (Marble Inlay ₹250/sqft).
 
 ### Tab 5: Purchase / Expense Tracker (`/expenses`)
 - **Fields**: Date, Item, Amount, Vendor, Cash / UPI, GST Bill Hai? (Yes/No), Status.
@@ -361,7 +361,7 @@ Based on user request and infographic specification (`ROYAL WORLD - GOOGLE SHEET
 
 ### Tab 4: Vendor List (`/vendors`)
 - **Fields**: Vendor Name, Mobile, Kaam (Specialty Work), Rate, Payment Dena Hai (Payable Balance), Status.
-- Seeded with Veera Glass (Toughening ₹135/sqft), Wender Sachin (Profiles ₹430/sqft), and Royal Marble Works (Marble Inlay ₹250/sqft).
+- Seeded with Veera Glass (Toughening ₹135/sqft), Vendor Sachin (Profiles ₹430/sqft), and Royal Marble Works (Marble Inlay ₹250/sqft).
 
 ### Tab 5: Purchase / Expense Tracker (`/expenses`)
 - **Fields**: Date, Item, Amount, Vendor, Cash / UPI, GST Bill Hai? (Yes/No), Status.
@@ -423,7 +423,7 @@ Based on user request and infographic specification (`ROYAL WORLD - GOOGLE SHEET
 
 ### Tab 4: Vendor List (`/vendors`)
 - **Fields**: Vendor Name, Mobile, Kaam (Specialty Work), Rate, Payment Dena Hai (Payable Balance), Status.
-- Seeded with Veera Glass (Toughening ₹135/sqft), Wender Sachin (Profiles ₹430/sqft), and Royal Marble Works (Marble Inlay ₹250/sqft).
+- Seeded with Veera Glass (Toughening ₹135/sqft), Vendor Sachin (Profiles ₹430/sqft), and Royal Marble Works (Marble Inlay ₹250/sqft).
 
 ### Tab 5: Purchase / Expense Tracker (`/expenses`)
 - **Fields**: Date, Item, Amount, Vendor, Cash / UPI, GST Bill Hai? (Yes/No), Status.
