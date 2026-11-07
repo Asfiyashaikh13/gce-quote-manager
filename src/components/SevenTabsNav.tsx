@@ -119,6 +119,14 @@ export function SevenTabsNav({ currentTab }: SevenTabsNavProps) {
         </div>
 
         <div className="flex items-center gap-3">
+          <a
+            href="https://asfiyashaikh13.github.io/glass-care/"
+            className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-md text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            title="Go back to the 1st website (Glass Care Enterprises)"
+          >
+            <span className="text-emerald-400 font-bold">←</span>
+            <span>Back to 1st Website</span>
+          </a>
           <div className="flex items-center gap-2 text-[11px] font-medium hidden md:flex">
             <span className="text-slate-300">Status:</span>
             <span className="px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-400/30 font-bold">
