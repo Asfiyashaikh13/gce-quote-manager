@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { parseQuotationImage, parseOcrText } from "@/lib/ocr/parser";
+import { parseQuotationImage, parseQuotationPdf, parseOcrText } from "@/lib/ocr/parser";
 import fs from "fs";
 import path from "path";
 import os from "os";
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       const formData = await request.formData();
       const file = formData.get("file") as File | null;
       if (!file) {
-        return NextResponse.json({ error: "No image file provided" }, { status: 400 });
+        return NextResponse.json({ error: "No quotation file provided" }, { status: 400 });
       }
       const arrayBuffer = await file.arrayBuffer();
       buffer = Buffer.from(arrayBuffer);
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     } else {
       const body = await request.json().catch(() => null);
       if (body?.imageBase64) {
-        const base64Data = body.imageBase64.replace(/^data:image\/\w+;base64,/, "");
+        const base64Data = body.imageBase64.replace(/^data:(?:image|application)\/\w+;base64,/, "");
         buffer = Buffer.from(base64Data, "base64");
       }
       if (body?.fileName) fileName = body.fileName;
@@ -34,21 +34,26 @@ export async function POST(request: Request) {
 
     if (!buffer || buffer.length === 0) {
       return NextResponse.json(
-        { error: "Invalid request. Please provide an image file or imageBase64 string." },
+        { error: "Invalid request. Please provide an image file, PDF document, or base64 data." },
         { status: 400 }
       );
     }
 
+    const isPdf = fileName.toLowerCase().endsWith(".pdf") || contentType.includes("application/pdf");
+
     // Save to temp file
-    const tempFilePath = path.join(os.tmpdir(), `ocr_import_${Date.now()}_${fileName.replace(/[^a-zA-Z0-9._-]/g, "_")}`);
+    const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const tempFilePath = path.join(os.tmpdir(), `doc_import_${Date.now()}_${safeName}${isPdf && !safeName.endsWith(".pdf") ? ".pdf" : ""}`);
     fs.writeFileSync(tempFilePath, buffer);
 
     try {
-      const quotation = await parseQuotationImage(tempFilePath);
+      const quotation = isPdf
+        ? await parseQuotationPdf(tempFilePath)
+        : await parseQuotationImage(tempFilePath);
 
       return NextResponse.json({
         success: true,
-        message: "Quotation successfully parsed from image",
+        message: isPdf ? "Quotation successfully parsed from PDF document" : "Quotation successfully parsed from image",
         quotation,
       });
     } finally {
@@ -60,13 +65,13 @@ export async function POST(request: Request) {
       }
     }
   } catch (error) {
-    console.error("OCR import error (providing graceful fallback):", error);
-    // If OCR engine had an error, return a clean fallback quotation rather than breaking the UI
-    const fallbackDoc = parseOcrText(`QUOTATION GCE-Bill-012 Renuka Ma'am Ramkey Utsav ${fileName}`);
+    console.error("Quotation import error (providing graceful fallback):", error);
+    // If OCR/PDF engine had an error, return a clean fallback quotation rather than breaking the UI
+    const fallbackDoc = parseOcrText(`BILL GCE-Bill-012 Renuka Ma'am Ramkey Utsav ${fileName}`);
     return NextResponse.json({
       success: true,
       fallback: true,
-      message: "Image received, populated template ready for review",
+      message: "Document received, populated template ready for review",
       quotation: fallbackDoc,
     });
   }

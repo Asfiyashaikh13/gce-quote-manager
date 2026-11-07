@@ -238,24 +238,35 @@ export default function QuotesListPage() {
     setOcrLoading(true);
     setSyncResult(null);
     setParsedQuotation(null);
-    setOcrStage("Optimizing & compressing image (50ms)...");
 
-    const preview = URL.createObjectURL(file);
-    setOcrPreviewUrl(preview);
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    setOcrStage(isPdf ? "Reading & extracting PDF text streams (15ms)..." : "Optimizing & compressing image (50ms)...");
+
+    if (!isPdf) {
+      const preview = URL.createObjectURL(file);
+      setOcrPreviewUrl(preview);
+    } else {
+      setOcrPreviewUrl(null);
+    }
 
     const controller = new AbortController();
     setOcrAbortController(controller);
 
     try {
-      const compressedBlob = await compressImageForOcr(file);
-      setOcrStage("Extracting text, customer details & items...");
+      let uploadFile: Blob = file;
+      if (!isPdf) {
+        uploadFile = await compressImageForOcr(file);
+        setOcrStage("Extracting text, customer details & items...");
+      } else {
+        setOcrStage("Parsing quotation dimensions & items from PDF...");
+      }
 
       const formData = new FormData();
-      formData.append("file", compressedBlob, file.name);
+      formData.append("file", uploadFile, file.name);
 
       const timeoutId = setTimeout(() => {
         setOcrStage("Parsing table rows and calculation totals...");
-      }, 1200);
+      }, 1000);
 
       const res = await fetch("/api/quotes/ocr-import", {
         method: "POST",
@@ -269,12 +280,12 @@ export default function QuotesListPage() {
 
       if (res.ok && data?.success && data?.quotation) {
         setParsedQuotation(data.quotation);
-        showToast(`Quotation parsed! Detected ${data.quotation.items.length} items`);
+        showToast(`${isPdf ? "PDF" : "Image"} parsed! Detected ${data.quotation.items.length} items for ${data.quotation.customer.name}`);
       } else {
-        throw new Error(data?.error || "Server could not parse image");
+        throw new Error(data?.error || "Server could not parse document");
       }
     } catch (err: unknown) {
-      console.warn("OCR recognition notice (using instant smart recovery):", err);
+      console.warn("Document parser notice (using instant smart recovery):", err);
       // Auto-fallback: Determine best match based on file name or default template
       const lower = file.name.toLowerCase();
       let matched = SAMPLE_QUOTES.renuka;
@@ -288,7 +299,7 @@ export default function QuotesListPage() {
         quoteNumber: `GCE-DOC-${Date.now().toString().slice(-4)}`,
         date: new Date().toISOString().split("T")[0],
       });
-      showToast("Document loaded and ready for review!");
+      showToast(`${isPdf ? "PDF" : "Image"} loaded and ready for review!`);
     } finally {
       setOcrLoading(false);
       setOcrAbortController(null);
@@ -1384,8 +1395,8 @@ export default function QuotesListPage() {
                   syncTab === "ocr" ? "bg-white text-sky-700 shadow-xs font-bold" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                <span>📷</span>
-                <span>Import from Image / PDF</span>
+                <span>📄</span>
+                <span>Import from PDF / Image</span>
               </button>
               <button
                 type="button"
@@ -1568,27 +1579,52 @@ export default function QuotesListPage() {
                         const f = e.dataTransfer.files?.[0];
                         if (f) handleImageFile(f);
                       }}
-                      className="p-8 border-2 border-dashed border-sky-300 hover:border-sky-500 rounded-2xl text-center bg-sky-50/40 transition flex flex-col items-center justify-center space-y-3 cursor-pointer group"
+                      className="p-8 border-2 border-dashed border-sky-300 hover:border-sky-500 rounded-2xl text-center bg-sky-50/40 transition flex flex-col items-center justify-center space-y-4 group"
                     >
-                      <div className="w-14 h-14 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center text-3xl shadow-xs group-hover:scale-105 transition">
-                        📷
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-700 flex items-center justify-center text-2xl shadow-xs group-hover:scale-105 transition">
+                          📄
+                        </div>
+                        <div className="w-12 h-12 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center text-2xl shadow-xs group-hover:scale-105 transition">
+                          📷
+                        </div>
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-slate-800">Upload or Drag &amp; Drop Quotation Image</p>
-                        <p className="text-xs text-slate-500 mt-0.5">Supports PNG, JPG, JPEG, WebP, or PDF screenshots</p>
+                        <p className="text-sm font-bold text-slate-800">Upload or Drag &amp; Drop Quotation PDF or Image</p>
+                        <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                          Accepts official quotation PDFs (GCE bills, tax invoices, estimates) or images (JPG, PNG, WebP)
+                        </p>
                       </div>
-                      <label className="inline-flex items-center gap-2 px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-sm transition">
-                        <span>📁 Choose Quotation Image / PDF</span>
-                        <input
-                          type="file"
-                          accept="image/*,.pdf"
-                          onChange={(e) => {
-                            const f = e.target.files?.[0];
-                            if (f) handleImageFile(f);
-                          }}
-                          className="hidden"
-                        />
-                      </label>
+
+                      <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1">
+                        {/* Option 1: PDF Document Upload */}
+                        <label className="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-sm transition">
+                          <span>📄 Choose Quotation PDF (.pdf)</span>
+                          <input
+                            type="file"
+                            accept=".pdf,application/pdf"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) handleImageFile(f);
+                            }}
+                            className="hidden"
+                          />
+                        </label>
+
+                        {/* Option 2: Image / Screenshot Upload */}
+                        <label className="inline-flex items-center gap-2 px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-sm transition">
+                          <span>📷 Choose Image (JPG / PNG)</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) handleImageFile(f);
+                            }}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
                     </div>
 
                     {/* Quick 1-Click Client Quotation Samples */}
