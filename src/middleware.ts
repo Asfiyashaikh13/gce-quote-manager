@@ -12,6 +12,7 @@ const PUBLIC_PATHS = [
   "/change-password",
   "/api/auth/login",
   "/api/auth/logout",
+  "/api/integrations/glass-care",
 ];
 
 export async function middleware(request: NextRequest) {
@@ -21,6 +22,7 @@ export async function middleware(request: NextRequest) {
   if (
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico" ||
+    pathname.startsWith("/api/integrations/") ||
     PUBLIC_PATHS.some((p) => pathname === p)
   ) {
     // If user is already logged in and visits /login, redirect to /

@@ -40,8 +40,18 @@ export async function GET() {
     const upiTotal = serialized.filter((e) => e.paymentMode === "UPI").reduce((sum, e) => sum + e.amount, 0);
     const billedCount = serialized.filter((e) => e.hasBill).length;
 
-    // Distinct project list for dropdown filter
-    const projects = Array.from(new Set(serialized.map((e) => e.projectName).filter(Boolean)));
+    // Distinct project list for dropdown filter (from expenses + active quotes)
+    const quoteProjects = await prisma.quote.findMany({
+      where: { deletedAt: null },
+      select: { customerBuilding: true, customerName: true },
+    });
+    const quoteProjectNames = quoteProjects
+      .map((q) => [q.customerName, q.customerBuilding].filter(Boolean).join(" - "))
+      .filter(Boolean);
+
+    const projects = Array.from(
+      new Set([...serialized.map((e) => e.projectName), ...quoteProjectNames].filter(Boolean))
+    );
 
     return NextResponse.json({
       success: true,

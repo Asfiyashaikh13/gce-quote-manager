@@ -79,6 +79,53 @@ export default function QuotesListPage() {
   ]);
   const [submitting, setSubmitting] = useState(false);
 
+  // Glass Care Sync Modal State
+  const [syncModalOpen, setSyncModalOpen] = useState(false);
+  const [syncInput, setSyncInput] = useState("");
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
+
+  const handleSyncData = async (payload: unknown) => {
+    setSyncLoading(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch("/api/integrations/glass-care", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(data.message || `Synced ${data.processedCount} quotes from Glass Care!`);
+        setSyncResult(`✓ ${data.message || "Successfully synced documents into all 7 tabs!"}`);
+        setSyncInput("");
+        loadQuotes();
+        setTimeout(() => setSyncModalOpen(false), 2200);
+      } else {
+        setSyncResult(`❌ ${data.error || "Failed to sync"}`);
+      }
+    } catch (e) {
+      setSyncResult(`❌ Network error syncing to Quotation Tracker: ${String(e)}`);
+    } finally {
+      setSyncLoading(false);
+    }
+  };
+
+  const handleJsonFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target?.result as string);
+        handleSyncData(parsed);
+      } catch {
+        setSyncResult("❌ Invalid JSON file. Please upload a valid Glass Care backup JSON.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const showToast = (msg: string) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(null), 3500);
@@ -300,6 +347,14 @@ export default function QuotesListPage() {
           </div>
 
           <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => setSyncModalOpen(true)}
+              className="px-3.5 py-2 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+              title="Sync documents from asfiyashaikh13.github.io/glass-care"
+            >
+              <span>🌐</span>
+              <span>Glass Care Sync</span>
+            </button>
             <button
               onClick={() => setNewModalOpen(true)}
               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
@@ -871,6 +926,128 @@ export default function QuotesListPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* GLASS CARE INTEGRATION & SYNC MODAL                            */}
+      {/* ============================================================== */}
+      {syncModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-xl w-full p-6 animate-scale-in">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 bg-sky-50 text-sky-700 rounded-lg text-lg">🌐</span>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Glass Care Website Sync</h3>
+                  <p className="text-xs text-slate-500">Live webhook &amp; backup sync from asfiyashaikh13.github.io/glass-care</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSyncModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold text-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Live Webhook Status */}
+            <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl mb-4 text-xs space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-bold text-emerald-900">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>Live Webhook Active</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = `${window.location.origin}/api/integrations/glass-care`;
+                    navigator.clipboard.writeText(url);
+                    showToast("Webhook URL copied to clipboard!");
+                  }}
+                  className="px-2 py-0.5 bg-white border border-emerald-300 text-emerald-800 rounded font-semibold text-[11px] hover:bg-emerald-100 transition cursor-pointer"
+                >
+                  📋 Copy Webhook URL
+                </button>
+              </div>
+              <p className="text-slate-600 text-[11px]">
+                Every Bill, Invoice, or Estimate generated on your website automatically pushes straight to Tab 1 and the other 6 tabs in real-time.
+              </p>
+            </div>
+
+            {/* Sync options */}
+            <div className="space-y-4 text-xs">
+              {/* Option A: Upload backup JSON */}
+              <div className="p-4 border-2 border-dashed border-slate-200 rounded-xl text-center hover:border-sky-400 transition bg-slate-50/50">
+                <p className="font-bold text-slate-800 mb-1">Upload Glass Care Backup (.json)</p>
+                <p className="text-[11px] text-slate-500 mb-3">
+                  Exported using the <code>💾 Backup All Data (JSON)</code> button on the website.
+                </p>
+                <label className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 hover:border-slate-400 font-semibold text-slate-700 rounded-lg cursor-pointer shadow-2xs">
+                  <span>📁 Choose Backup JSON</span>
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={handleJsonFileUpload}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              {/* Option B: Paste raw JSON */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Or Paste Document / Backup JSON:</label>
+                <textarea
+                  rows={4}
+                  value={syncInput}
+                  onChange={(e) => setSyncInput(e.target.value)}
+                  placeholder='Paste {"document": { ... }} or [{"type": "Bill", ...}]'
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
+                />
+              </div>
+
+              {syncResult && (
+                <div className={`p-3 rounded-lg text-xs font-semibold ${syncResult.startsWith("✓") ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
+                  {syncResult}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-3 border-t border-slate-200">
+                <a
+                  href="https://asfiyashaikh13.github.io/glass-care/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sky-600 hover:underline font-semibold flex items-center gap-1"
+                >
+                  <span>Open Website ↗</span>
+                </a>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSyncModalOpen(false)}
+                    className="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="button"
+                    disabled={syncLoading || !syncInput.trim()}
+                    onClick={() => {
+                      try {
+                        const parsed = JSON.parse(syncInput);
+                        handleSyncData(parsed);
+                      } catch {
+                        setSyncResult("❌ Invalid JSON text. Please check syntax.");
+                      }
+                    }}
+                    className="px-4 py-2 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white font-bold rounded-lg shadow-sm transition cursor-pointer"
+                  >
+                    {syncLoading ? "Syncing..." : "Sync Document"}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
