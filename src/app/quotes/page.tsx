@@ -558,7 +558,23 @@ export default function QuotesListPage() {
         }
       } catch {}
 
-      setQuotes(fetchedQuotes);
+      // Stable state update: Only update state when data actually changes to prevent row flickering/blinking
+      setQuotes((prevQuotes) => {
+        if (
+          prevQuotes.length === fetchedQuotes.length &&
+          prevQuotes.every(
+            (q, idx) =>
+              q.id === fetchedQuotes[idx].id &&
+              q.status === fetchedQuotes[idx].status &&
+              q.version === fetchedQuotes[idx].version &&
+              q.displayTotal === fetchedQuotes[idx].displayTotal &&
+              q.itemCount === fetchedQuotes[idx].itemCount
+          )
+        ) {
+          return prevQuotes;
+        }
+        return fetchedQuotes;
+      });
       setError("");
       setLoading(false);
     } catch {
@@ -570,8 +586,12 @@ export default function QuotesListPage() {
   useEffect(() => {
     loadQuotes();
     loadFactories();
-    // Auto-poll every 3 seconds so live webhooks from Glass Care reflect on-screen automatically
-    const interval = setInterval(loadQuotes, 3000);
+    // Auto-poll quietly when tab is active without triggering re-render flicker
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        loadQuotes();
+      }
+    }, 6000);
     return () => clearInterval(interval);
   }, [statusFilter, search]);
 
@@ -974,7 +994,7 @@ export default function QuotesListPage() {
                     });
 
                     return (
-                      <tr key={q.id} className="hover:bg-slate-50/80 transition">
+                      <tr key={q.id} className="hover:bg-slate-50/80 transition-colors duration-150">
                         {/* # Index */}
                         <td className="py-3 px-3 text-center font-mono text-slate-400 text-[11px]">
                           {idx + 1}
