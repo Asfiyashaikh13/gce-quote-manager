@@ -40,6 +40,7 @@ export default function AdminUsersPage() {
         const data = await res.json();
         if (!ignore) {
           setUsers(data.users || []);
+          setError("");
           setLoading(false);
         }
       } catch {
@@ -68,6 +69,7 @@ export default function AdminUsersPage() {
       }
       const data = await res.json();
       setUsers(data.users || []);
+      setError("");
     } catch {
       setError("Error connecting to server");
     }

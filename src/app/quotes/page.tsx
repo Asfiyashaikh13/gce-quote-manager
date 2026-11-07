@@ -191,12 +191,17 @@ export default function QuotesListPage() {
 
       const res = await fetch(`/api/quotes?${params.toString()}`);
       if (!res.ok) {
-        setError("Failed to fetch quotes");
+        if (res.status === 401) {
+          setError("Session expired. Please log in again.");
+        } else {
+          setError("Failed to fetch quotes from server");
+        }
         setLoading(false);
         return;
       }
       const data = await res.json();
       setQuotes(data.quotes || []);
+      setError("");
       setLoading(false);
     } catch {
       setError("Error connecting to server");

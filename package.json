@@ -9,6 +9,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:audit": "tsx test-audit-suite.ts",
     "test:e2e": "playwright test",
     "backup": "tsx scripts/backup-sqlite.ts",
     "postinstall": "prisma generate"

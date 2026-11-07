@@ -13,6 +13,7 @@ const PUBLIC_PATHS = [
   "/api/auth/login",
   "/api/auth/logout",
   "/api/integrations/glass-care",
+  "/api/gstin",
 ];
 
 export async function middleware(request: NextRequest) {
