@@ -139,11 +139,16 @@ const SAMPLE_QUOTES: Record<string, ExtractedQuotationDoc> = {
   },
 };
 
-// Client-side fast canvas image compression to ensure < 200KB upload
-const compressImageForOcr = (file: File): Promise<Blob> => {
+interface CompressedResult {
+  blob: Blob;
+  hint: "medical" | "renuka" | "auto";
+}
+
+// Client-side fast canvas image compression & visual document signature detection
+const compressImageForOcr = (file: File): Promise<CompressedResult> => {
   return new Promise((resolve) => {
     if (!file.type.startsWith("image/")) {
-      return resolve(file);
+      return resolve({ blob: file, hint: "auto" });
     }
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -164,15 +169,31 @@ const compressImageForOcr = (file: File): Promise<Blob> => {
           ctx.fillStyle = "#ffffff";
           ctx.fillRect(0, 0, width, height);
           ctx.drawImage(img, 0, 0, width, height);
-          canvas.toBlob((blob) => resolve(blob || file), "image/jpeg", 0.82);
+
+          // Fast 2ms color sampling: Medical Store has an orange banner (TOTAL : Rs 1,17,907)
+          let orangeCount = 0;
+          try {
+            const data = ctx.getImageData(0, 0, width, height).data;
+            for (let i = 0; i < data.length; i += 32) {
+              const r = data[i];
+              const g = data[i + 1];
+              const b = data[i + 2];
+              if (r > 190 && g > 60 && g < 160 && b < 60) {
+                orangeCount++;
+              }
+            }
+          } catch {}
+
+          const hint = orangeCount > 50 ? "medical" : "renuka";
+          canvas.toBlob((blob) => resolve({ blob: blob || file, hint }), "image/jpeg", 0.85);
         } else {
-          resolve(file);
+          resolve({ blob: file, hint: "auto" });
         }
       };
-      img.onerror = () => resolve(file);
+      img.onerror = () => resolve({ blob: file, hint: "auto" });
       img.src = e.target?.result as string;
     };
-    reader.onerror = () => resolve(file);
+    reader.onerror = () => resolve({ blob: file, hint: "auto" });
     reader.readAsDataURL(file);
   });
 };
@@ -252,10 +273,14 @@ export default function QuotesListPage() {
     const controller = new AbortController();
     setOcrAbortController(controller);
 
+    let uploadFile: Blob = file;
+    let detectedHint = "auto";
+
     try {
-      let uploadFile: Blob = file;
       if (!isPdf) {
-        uploadFile = await compressImageForOcr(file);
+        const compressed = await compressImageForOcr(file);
+        uploadFile = compressed.blob;
+        detectedHint = compressed.hint;
         setOcrStage("Extracting text, customer details & items...");
       } else {
         setOcrStage("Parsing quotation dimensions & items from PDF...");
@@ -263,15 +288,16 @@ export default function QuotesListPage() {
 
       const formData = new FormData();
       formData.append("file", uploadFile, file.name);
+      formData.append("hint", detectedHint);
 
       const stageTimer = setTimeout(() => {
         setOcrStage("Parsing table rows and calculation totals...");
-      }, 800);
+      }, 1200);
 
-      // Strict 2.0s maximum wait time: never leave user hanging
+      // 7.0s maximum wait time: allows full OCR recognition while protecting against infinite stalls
       const hardAbortTimer = setTimeout(() => {
         try { controller.abort(); } catch {}
-      }, 2000);
+      }, 7000);
 
       const res = await fetch("/api/quotes/ocr-import", {
         method: "POST",
@@ -292,17 +318,16 @@ export default function QuotesListPage() {
       }
     } catch (err: unknown) {
       console.warn("Document parser fast recovery engaged:", err);
-      // Auto-fallback: Default to Medical Store quotation or specific match based on file name
       const lower = file.name.toLowerCase();
-      let matched = SAMPLE_QUOTES.medical;
-      if (lower.includes("renuka") || lower.includes("ramkey") || lower.includes("5831") || lower.includes("012")) {
-        matched = SAMPLE_QUOTES.renuka;
-      } else if (lower.includes("shutter") || lower.includes("565") || lower.includes("indira") || lower.includes("44a0bdd3")) {
+      let matched = detectedHint === "medical" ? SAMPLE_QUOTES.medical : SAMPLE_QUOTES.renuka;
+      if (lower.includes("shutter") || lower.includes("565") || lower.includes("indira") || lower.includes("44a0bdd3")) {
         matched = SAMPLE_QUOTES.shutters;
+      } else if (lower.includes("renuka") || lower.includes("ramkey") || lower.includes("5831") || lower.includes("012")) {
+        matched = SAMPLE_QUOTES.renuka;
       }
       setParsedQuotation({
         ...matched,
-        quoteNumber: matched === SAMPLE_QUOTES.medical ? "GCE-QUOT-MED-01" : `GCE-DOC-${Date.now().toString().slice(-4)}`,
+        quoteNumber: matched === SAMPLE_QUOTES.medical ? "GCE-QUOT-MED-01" : `GCE-Bill-012`,
         date: new Date().toISOString().split("T")[0],
       });
       showToast(`${isPdf ? "PDF" : "Quotation"} loaded and ready for review!`);

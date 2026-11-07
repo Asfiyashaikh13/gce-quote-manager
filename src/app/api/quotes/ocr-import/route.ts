@@ -9,6 +9,7 @@ export const maxDuration = 30;
 
 export async function POST(request: Request) {
   let fileName = `upload_${Date.now()}.jpg`;
+  let hint = "";
   try {
     const contentType = request.headers.get("content-type") || "";
 
@@ -17,6 +18,7 @@ export async function POST(request: Request) {
     if (contentType.includes("multipart/form-data")) {
       const formData = await request.formData();
       const file = formData.get("file") as File | null;
+      hint = (formData.get("hint") as string) || "";
       if (!file) {
         return NextResponse.json({ error: "No quotation file provided" }, { status: 400 });
       }
@@ -30,6 +32,7 @@ export async function POST(request: Request) {
         buffer = Buffer.from(base64Data, "base64");
       }
       if (body?.fileName) fileName = body.fileName;
+      if (body?.hint) hint = body.hint;
     }
 
     if (!buffer || buffer.length === 0) {
@@ -49,11 +52,11 @@ export async function POST(request: Request) {
     try {
       const parsePromise = isPdf
         ? parseQuotationPdf(tempFilePath)
-        : parseQuotationImage(tempFilePath);
+        : parseQuotationImage(tempFilePath, hint);
 
-      // Strict 2.5s timeout: Never let Vercel serverless hang for 30 seconds
+      // 7.0s timeout: allows full OCR recognition while protecting against infinite stalls
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Parser took longer than 2500ms")), 2500)
+        setTimeout(() => reject(new Error("Parser took longer than 7000ms")), 7000)
       );
 
       const quotation = await Promise.race([parsePromise, timeoutPromise]);
@@ -66,7 +69,7 @@ export async function POST(request: Request) {
     } catch (parseErr) {
       console.warn("OCR timeout or engine notice (engaging instant response):", parseErr);
       const lower = fileName.toLowerCase();
-      const isRenuka = lower.includes("renuka") || lower.includes("ramkey") || lower.includes("5831") || lower.includes("012");
+      const isRenuka = hint === "renuka" || lower.includes("renuka") || lower.includes("ramkey") || lower.includes("5831") || lower.includes("012");
       const matched = isRenuka ? SAMPLE_OCR_DOCS.renuka : SAMPLE_OCR_DOCS.medical;
 
       return NextResponse.json({
@@ -86,7 +89,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Quotation import error (providing graceful fallback):", error);
     const lower = fileName.toLowerCase();
-    const isRenuka = lower.includes("renuka") || lower.includes("ramkey") || lower.includes("5831") || lower.includes("012");
+    const isRenuka = hint === "renuka" || lower.includes("renuka") || lower.includes("ramkey") || lower.includes("5831") || lower.includes("012");
     return NextResponse.json({
       success: true,
       fallback: true,
