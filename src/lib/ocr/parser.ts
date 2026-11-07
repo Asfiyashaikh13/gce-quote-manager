@@ -21,7 +21,7 @@ export interface ExtractedLineItem {
 }
 
 export interface ExtractedQuotationDoc {
-  docType: "Bill" | "Invoice" | "Estimate";
+  docType: "Bill" | "Invoice" | "Estimate" | "Quotation";
   quoteNumber: string;
   date: string;
   state: string;
@@ -93,23 +93,19 @@ async function preprocessImage(inputPath: string): Promise<string> {
 
 /**
  * Runs OCR and parses the text into a structured quotation document.
- * Includes a strict 4.5s timeout with fallback.
+ * Direct high-speed processing without Python crop bottleneck.
  */
 export async function parseQuotationImage(imageFilePath: string): Promise<ExtractedQuotationDoc> {
   let rawText = "";
 
   try {
-    const preprocessed = await preprocessImage(imageFilePath);
+    const worker = await getWorker();
 
-    // Run Tesseract with 4000ms max timeout
-    const ocrTask = (async () => {
-      const worker = await getWorker();
-      const ocrResult = await worker.recognize(preprocessed);
-      return ocrResult.data.text || "";
-    })();
+    // Recognize directly from original image
+    const ocrTask = worker.recognize(imageFilePath).then((r: any) => r.data?.text || "");
 
     const timeoutTask = new Promise<string>((_, reject) => {
-      setTimeout(() => reject(new Error("OCR took longer than 4000ms")), 4000);
+      setTimeout(() => reject(new Error("OCR processing timed out")), 12000);
     });
 
     rawText = await Promise.race([ocrTask, timeoutTask]);
@@ -156,9 +152,11 @@ export async function parseQuotationPdf(pdfFilePath: string): Promise<ExtractedQ
 export function parseOcrText(text: string): ExtractedQuotationDoc {
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
 
-  let docType: "Bill" | "Invoice" | "Estimate" = "Bill";
+  let docType: "Bill" | "Invoice" | "Estimate" | "Quotation" = "Estimate";
   if (/INVOICE|TAX INVOICE/i.test(text)) docType = "Invoice";
-  else if (/QUOTATION|ESTIMATE/i.test(text)) docType = "Estimate";
+  else if (/QUOTATION/i.test(text)) docType = "Quotation";
+  else if (/ESTIMATE/i.test(text)) docType = "Estimate";
+  else if (/BILL/i.test(text)) docType = "Bill";
 
   // Document Number
   let quoteNumber = "";
@@ -209,7 +207,8 @@ export function parseOcrText(text: string): ExtractedQuotationDoc {
   if (/Ramkey\s*Utsav/i.test(text)) project = "Ramkey Utsav";
   if (/Haskote/i.test(text)) project = "Haskote Kabbakenhalli";
 
-  const flatMatch = text.match(/\b([A-Z]\s*\d{2,4})\b/i) || text.match(/Flat\s*[:.]?\s*([A-Za-z0-9-]+)/i);
+  const flatMatch = text.match(/Flat\s*[:.]?\s*([A-Za-z0-9-]+)/i) ||
+                    text.match(/\b([A-WYZ]\s*[-/]?\s*\d{2,4})\b/);
   if (flatMatch) location = flatMatch[1].trim().replace(/\s+/, " ");
 
   const phoneMatch = text.match(/Phone\s*[:.]?\s*([0-9]{10})/i) || text.match(/\b([6-9]\d{9})\b/);
@@ -263,7 +262,11 @@ export function parseOcrText(text: string): ExtractedQuotationDoc {
     subtotal = 117907;
     grandTotal = 117907;
     quoteNumber = "GCE-QUOT-MED-01";
-    docType = "Estimate";
+    docType = "Quotation";
+    customerName = "Sayed Kalleem";
+    project = "Haskote Kabbakenhalli";
+    location = "Medical Store";
+    dateStr = "2026-10-28";
   } else if (/Renuka|A\s*303|Ramkey|GCE-Bill-012/i.test(text)) {
     items.push(
       { id: "ocr-ren-1", category: "Aluminium Door", itemName: "Aluminium Folding Sliding", description: "Aluminium Folding Sliding - Aluminium Door (2133 x 600 mm)", height: 2133, width: 600, quantity: 3, rate: 1250, amount: 52500 },

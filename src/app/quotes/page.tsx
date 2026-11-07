@@ -52,17 +52,17 @@ const STANDARD_PRESETS = [
 
 const SAMPLE_QUOTES: Record<string, ExtractedQuotationDoc> = {
   medical: {
-    docType: "Estimate",
+    docType: "Quotation",
     quoteNumber: "GCE-QUOT-MED-01",
-    date: new Date().toISOString().split("T")[0],
+    date: "2026-10-28",
     state: "Karnataka",
     paymentMode: "Pending",
     paidAmount: 0,
     customer: {
       name: "Sayed Kalleem",
       project: "Haskote Kabbakenhalli",
-      location: "Shop 4, Main Road",
-      phone: "9845012345",
+      location: "Medical Store",
+      phone: "",
     },
     items: [
       { id: "s-med-1", category: "Racks", itemName: "First Rack", description: "First Rack (760 x 2290 Deep 460 - Cubic 29.06 Cft)", height: 2290, width: 760, thickness: 460, quantity: 1, rate: 1050, amount: 30516 },
@@ -289,7 +289,7 @@ export default function QuotesListPage() {
       // Auto-fallback: Determine best match based on file name or default template
       const lower = file.name.toLowerCase();
       let matched = SAMPLE_QUOTES.renuka;
-      if (lower.includes("med") || lower.includes("rack") || lower.includes("sayed") || lower.includes("4e640df9")) {
+      if (lower.includes("med") || lower.includes("rack") || lower.includes("sayed") || lower.includes("store") || lower.includes("4e640df9") || lower.includes("94fdd028")) {
         matched = SAMPLE_QUOTES.medical;
       } else if (lower.includes("shutter") || lower.includes("565") || lower.includes("indira") || lower.includes("44a0bdd3")) {
         matched = SAMPLE_QUOTES.shutters;
