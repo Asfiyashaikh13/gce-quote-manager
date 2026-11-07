@@ -154,6 +154,9 @@ export default function QuotesListPage() {
 
   useEffect(() => {
     loadQuotes();
+    // Auto-poll every 3 seconds so live webhooks from Glass Care reflect on-screen automatically
+    const interval = setInterval(loadQuotes, 3000);
+    return () => clearInterval(interval);
   }, [statusFilter, search]);
 
   const handleStatusChange = async (id: string, newStatus: QuoteStatus) => {

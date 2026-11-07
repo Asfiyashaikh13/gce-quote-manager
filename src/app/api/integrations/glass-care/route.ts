@@ -96,7 +96,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    // Extract list of documents from various formats (single, array, backup export)
+    // Extract list of documents from various formats (single, array, backup export, live estimate)
     let rawDocs: GlassCareDocument[] = [];
     if (Array.isArray(body)) {
       rawDocs = body;
@@ -106,6 +106,23 @@ export async function POST(request: Request) {
       rawDocs = body.documents;
     } else if (body.backup?.documents && Array.isArray(body.backup.documents)) {
       rawDocs = body.backup.documents;
+    } else if (body.liveEstimate) {
+      rawDocs = [body.liveEstimate];
+    } else if (body.estimateItems && Array.isArray(body.estimateItems)) {
+      rawDocs = [{
+        id: body.id || `live-est-${Date.now()}`,
+        type: "Estimate",
+        number: body.estimateNumber || "GCE-Est-Live",
+        customer: body.customer || {
+          name: body.customerName,
+          location: body.flatNo,
+          project: body.buildingName,
+          phone: body.customerPhone,
+        },
+        items: body.estimateItems,
+        state: body.state || "Karnataka",
+        totals: body.totals,
+      }];
     } else if (body.id && (body.type || body.items || body.customer)) {
       rawDocs = [body];
     }

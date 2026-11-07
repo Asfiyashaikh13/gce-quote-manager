@@ -20,7 +20,7 @@ export async function GET(request: Request) {
       where: {
         quote: {
           deletedAt: null,
-          status: { in: ["APPROVED", "IN_PRODUCTION", "SENT", "DRAFT", "DELIVERED"] },
+          status: { in: ["APPROVED", "IN_PRODUCTION", "SENT", "DRAFT", "DELIVERED", "PAID"] },
         },
       },
       include: {
