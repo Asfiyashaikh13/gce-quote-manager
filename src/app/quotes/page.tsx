@@ -8,6 +8,8 @@ import { generateWhatsAppShareUrl } from "@/lib/quotes/whatsapp";
 import { QuoteStatus } from "@prisma/client";
 import { SevenTabsNav } from "@/components/SevenTabsNav";
 
+import { ExtractedQuotationDoc } from "@/lib/ocr/parser";
+
 interface QuoteListItem {
   id: string;
   quoteNumber: string;
@@ -86,11 +88,90 @@ export default function QuotesListPage() {
   ]);
   const [submitting, setSubmitting] = useState(false);
 
-  // Glass Care Sync Modal State
+  // Glass Care Sync & OCR Modal State
   const [syncModalOpen, setSyncModalOpen] = useState(false);
+  const [syncTab, setSyncTab] = useState<"ocr" | "backup" | "webhook">("ocr");
   const [syncInput, setSyncInput] = useState("");
   const [syncLoading, setSyncLoading] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
+
+  // OCR state
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrPreviewUrl, setOcrPreviewUrl] = useState<string | null>(null);
+  const [parsedQuotation, setParsedQuotation] = useState<ExtractedQuotationDoc | null>(null);
+
+  const handleImageFile = async (file: File) => {
+    if (!file) return;
+    setOcrLoading(true);
+    setSyncResult(null);
+    setParsedQuotation(null);
+
+    const preview = URL.createObjectURL(file);
+    setOcrPreviewUrl(preview);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/quotes/ocr-import", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success && data.quotation) {
+        setParsedQuotation(data.quotation);
+        showToast(`Quotation parsed! Detected ${data.quotation.items.length} items for ${data.quotation.customer.name}`);
+      } else {
+        setSyncResult(`❌ OCR Error: ${data.error || "Could not parse image"}`);
+      }
+    } catch (err) {
+      setSyncResult(`❌ Error during OCR: ${String(err)}`);
+    } finally {
+      setOcrLoading(false);
+    }
+  };
+
+  const handleConfirmOcrImport = async () => {
+    if (!parsedQuotation) return;
+    setSyncLoading(true);
+
+    const payload = {
+      document: {
+        id: `ocr-${Date.now()}`,
+        type: parsedQuotation.docType,
+        number: parsedQuotation.quoteNumber,
+        date: parsedQuotation.date,
+        state: parsedQuotation.state || "Karnataka",
+        paymentMode: parsedQuotation.paymentMode,
+        paidAmount: parsedQuotation.paidAmount,
+        customer: parsedQuotation.customer,
+        items: parsedQuotation.items.map((it) => ({
+          category: it.category,
+          itemName: it.itemName,
+          description: it.description,
+          height: it.height,
+          width: it.width,
+          thickness: it.thickness,
+          quantity: it.quantity,
+          rate: it.rate,
+          taxableAmount: it.amount,
+          lineTotal: it.amount,
+        })),
+        totals: {
+          subtotal: parsedQuotation.totals.subtotal,
+          cgst: parsedQuotation.totals.cgst,
+          sgst: parsedQuotation.totals.sgst,
+          igst: parsedQuotation.totals.igst,
+          payable: parsedQuotation.totals.payable,
+        },
+      },
+    };
+
+    await handleSyncData(payload);
+    setParsedQuotation(null);
+    setOcrPreviewUrl(null);
+  };
 
   const handleSyncData = async (payload: unknown) => {
     setSyncLoading(true);
@@ -426,12 +507,15 @@ export default function QuotesListPage() {
               <span>Back to 1st Website</span>
             </a>
             <button
-              onClick={() => setSyncModalOpen(true)}
+              onClick={() => {
+                setSyncTab("ocr");
+                setSyncModalOpen(true);
+              }}
               className="px-3.5 py-2 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
-              title="Sync documents from asfiyashaikh13.github.io/glass-care"
+              title="Import quotation from image, screenshot, or website backup"
             >
-              <span>🌐</span>
-              <span>Glass Care Sync</span>
+              <span>📷</span>
+              <span>Import Quote Image / Sync</span>
             </button>
             <button
               onClick={() => {
@@ -1064,105 +1148,248 @@ export default function QuotesListPage() {
       )}
 
       {/* ============================================================== */}
-      {/* GLASS CARE INTEGRATION & SYNC MODAL                            */}
+      {/* GLASS CARE INTEGRATION, OCR & SYNC MODAL                       */}
       {/* ============================================================== */}
       {syncModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-xl w-full p-6 animate-scale-in">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-2xl w-full p-6 animate-scale-in max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
               <div className="flex items-center gap-2.5">
-                <span className="p-2 bg-sky-50 text-sky-700 rounded-lg text-lg">🌐</span>
+                <span className="p-2 bg-sky-50 text-sky-700 rounded-lg text-lg">📷</span>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">Glass Care Website Sync</h3>
-                  <p className="text-xs text-slate-500">Live webhook &amp; backup sync from asfiyashaikh13.github.io/glass-care</p>
+                  <h3 className="text-base font-bold text-slate-900">Import Quotation &amp; Multi-Tab Sync</h3>
+                  <p className="text-xs text-slate-500">Upload quotation images or sync documents into all 7 tabs</p>
                 </div>
               </div>
               <button
-                onClick={() => setSyncModalOpen(false)}
+                onClick={() => {
+                  setSyncModalOpen(false);
+                  setParsedQuotation(null);
+                  setOcrPreviewUrl(null);
+                }}
                 className="text-slate-400 hover:text-slate-600 font-bold text-lg cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            {/* Live Webhook Status */}
-            <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl mb-4 text-xs space-y-1.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 font-bold text-emerald-900">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span>Live Webhook Active</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const url = `${window.location.origin}/api/integrations/glass-care`;
-                    navigator.clipboard.writeText(url);
-                    showToast("Webhook URL copied to clipboard!");
-                  }}
-                  className="px-2 py-0.5 bg-white border border-emerald-300 text-emerald-800 rounded font-semibold text-[11px] hover:bg-emerald-100 transition cursor-pointer"
-                >
-                  📋 Copy Webhook URL
-                </button>
-              </div>
-              <p className="text-slate-600 text-[11px]">
-                Every Bill, Invoice, or Estimate generated on your website automatically pushes straight to Tab 1 and the other 6 tabs in real-time.
-              </p>
+            {/* Tab navigation within modal */}
+            <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-xl mb-4 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setSyncTab("ocr")}
+                className={`flex-1 py-1.5 px-3 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                  syncTab === "ocr" ? "bg-white text-sky-700 shadow-xs font-bold" : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <span>📷</span>
+                <span>Import from Image / PDF</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSyncTab("backup")}
+                className={`flex-1 py-1.5 px-3 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                  syncTab === "backup" ? "bg-white text-sky-700 shadow-xs font-bold" : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <span>📁</span>
+                <span>Website Backup JSON</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSyncTab("webhook")}
+                className={`flex-1 py-1.5 px-3 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                  syncTab === "webhook" ? "bg-white text-sky-700 shadow-xs font-bold" : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <span>🌐</span>
+                <span>Live Webhook</span>
+              </button>
             </div>
 
-            {/* Sync options */}
-            <div className="space-y-4 text-xs">
-              {/* Option A: Upload backup JSON */}
-              <div className="p-4 border-2 border-dashed border-slate-200 rounded-xl text-center hover:border-sky-400 transition bg-slate-50/50">
-                <p className="font-bold text-slate-800 mb-1">Upload Glass Care Backup (.json)</p>
-                <p className="text-[11px] text-slate-500 mb-3">
-                  Exported using the <code>💾 Backup All Data (JSON)</code> button on the website.
-                </p>
-                <label className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 hover:border-slate-400 font-semibold text-slate-700 rounded-lg cursor-pointer shadow-2xs">
-                  <span>📁 Choose Backup JSON</span>
-                  <input
-                    type="file"
-                    accept=".json"
-                    onChange={handleJsonFileUpload}
-                    className="hidden"
-                  />
-                </label>
-              </div>
+            {/* TAB 1: OCR IMAGE IMPORT */}
+            {syncTab === "ocr" && (
+              <div className="space-y-4">
+                {ocrLoading ? (
+                  <div className="py-12 flex flex-col items-center justify-center space-y-3 bg-sky-50/50 rounded-2xl border border-sky-100">
+                    <div className="w-10 h-10 border-4 border-sky-600 border-t-transparent rounded-full animate-spin"></div>
+                    <p className="text-sm font-bold text-slate-800">Reading Quotation Image with Optical OCR...</p>
+                    <p className="text-xs text-slate-500">Auto-detecting customer details, dimensions &amp; items specification...</p>
+                  </div>
+                ) : parsedQuotation ? (
+                  <div className="space-y-3 text-xs">
+                    {/* Header Banner */}
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">Document Detected</span>
+                        <span className="font-bold text-slate-900 text-sm">{parsedQuotation.docType} #{parsedQuotation.quoteNumber}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase block">Total Amount</span>
+                        <span className="text-base font-extrabold text-emerald-700 font-mono">
+                          ₹{parsedQuotation.totals.payable.toLocaleString("en-IN")}
+                        </span>
+                      </div>
+                    </div>
 
-              {/* Option B: Paste raw JSON */}
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Or Paste Document / Backup JSON:</label>
-                <textarea
-                  rows={4}
-                  value={syncInput}
-                  onChange={(e) => setSyncInput(e.target.value)}
-                  placeholder='Paste {"document": { ... }} or [{"type": "Bill", ...}]'
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
-                />
-              </div>
+                    {/* Customer & Location Details Form */}
+                    <div className="grid grid-cols-2 gap-2.5 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                      <div>
+                        <label className="text-[10px] text-slate-500 font-bold uppercase block">Customer Name</label>
+                        <input
+                          type="text"
+                          value={parsedQuotation.customer.name}
+                          onChange={(e) => setParsedQuotation({ ...parsedQuotation, customer: { ...parsedQuotation.customer, name: e.target.value } })}
+                          className="w-full font-bold text-slate-900 bg-white border border-slate-200 rounded px-2 py-1 mt-0.5"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-500 font-bold uppercase block">Project / Village</label>
+                        <input
+                          type="text"
+                          value={parsedQuotation.customer.project}
+                          onChange={(e) => setParsedQuotation({ ...parsedQuotation, customer: { ...parsedQuotation.customer, project: e.target.value } })}
+                          className="w-full font-bold text-slate-900 bg-white border border-slate-200 rounded px-2 py-1 mt-0.5"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-500 font-bold uppercase block">Flat / Location</label>
+                        <input
+                          type="text"
+                          value={parsedQuotation.customer.location}
+                          onChange={(e) => setParsedQuotation({ ...parsedQuotation, customer: { ...parsedQuotation.customer, location: e.target.value } })}
+                          className="w-full text-slate-700 bg-white border border-slate-200 rounded px-2 py-1 mt-0.5"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-500 font-bold uppercase block">Phone</label>
+                        <input
+                          type="text"
+                          value={parsedQuotation.customer.phone}
+                          onChange={(e) => setParsedQuotation({ ...parsedQuotation, customer: { ...parsedQuotation.customer, phone: e.target.value } })}
+                          className="w-full text-slate-700 bg-white border border-slate-200 rounded px-2 py-1 mt-0.5"
+                        />
+                      </div>
+                    </div>
 
-              {syncResult && (
-                <div className={`p-3 rounded-lg text-xs font-semibold ${syncResult.startsWith("✓") ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
-                  {syncResult}
-                </div>
-              )}
+                    {/* Line Items Table */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold text-slate-800">Detected Items ({parsedQuotation.items.length})</span>
+                        <span className="text-[10px] text-slate-500">Auto-applies -7mm deduction rule in Tab 2 Factory WIP</span>
+                      </div>
+                      <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-lg text-[11px]">
+                        <table className="w-full text-left">
+                          <thead className="bg-slate-100 text-slate-600 font-bold sticky top-0">
+                            <tr>
+                              <th className="p-1.5">#</th>
+                              <th className="p-1.5">Description</th>
+                              <th className="p-1.5 text-center">Size (mm)</th>
+                              <th className="p-1.5 text-center">Qty</th>
+                              <th className="p-1.5 text-right">Rate</th>
+                              <th className="p-1.5 text-right">Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {parsedQuotation.items.map((it, idx) => (
+                              <tr key={idx} className="hover:bg-slate-50">
+                                <td className="p-1.5 text-slate-400 font-mono">{idx + 1}</td>
+                                <td className="p-1.5 font-medium text-slate-800">{it.description}</td>
+                                <td className="p-1.5 text-center font-mono text-slate-600">{it.height}×{it.width}</td>
+                                <td className="p-1.5 text-center font-mono">{it.quantity}</td>
+                                <td className="p-1.5 text-right font-mono">₹{it.rate}</td>
+                                <td className="p-1.5 text-right font-mono font-bold text-slate-900">₹{it.amount.toLocaleString("en-IN")}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
 
-              <div className="flex items-center justify-between pt-3 border-t border-slate-200">
-                <a
-                  href="https://asfiyashaikh13.github.io/glass-care/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sky-600 hover:underline font-semibold flex items-center gap-1"
-                >
-                  <span>Open Website ↗</span>
-                </a>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSyncModalOpen(false)}
-                    className="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+                    {/* Actions */}
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => { setParsedQuotation(null); setOcrPreviewUrl(null); }}
+                        className="px-3 py-1.5 border border-slate-300 rounded-lg text-slate-600 text-xs font-semibold hover:bg-slate-50 transition cursor-pointer"
+                      >
+                        ↺ Choose Another Image
+                      </button>
+                      <button
+                        type="button"
+                        disabled={syncLoading}
+                        onClick={handleConfirmOcrImport}
+                        className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <span>{syncLoading ? "Importing..." : "✓ Import into All 7 Tabs"}</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const f = e.dataTransfer.files?.[0];
+                      if (f) handleImageFile(f);
+                    }}
+                    className="p-8 border-2 border-dashed border-sky-300 hover:border-sky-500 rounded-2xl text-center bg-sky-50/40 transition flex flex-col items-center justify-center space-y-3 cursor-pointer group"
                   >
-                    Close
-                  </button>
+                    <div className="w-14 h-14 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center text-3xl shadow-xs group-hover:scale-105 transition">
+                      📷
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">Upload or Drag &amp; Drop Quotation Image</p>
+                      <p className="text-xs text-slate-500 mt-0.5">Supports PNG, JPG, JPEG, WebP, or PDF screenshots</p>
+                    </div>
+                    <label className="inline-flex items-center gap-2 px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-sm transition">
+                      <span>📁 Choose Quotation Image / PDF</span>
+                      <input
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleImageFile(f);
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 2: BACKUP JSON */}
+            {syncTab === "backup" && (
+              <div className="space-y-4 text-xs">
+                <div className="p-4 border-2 border-dashed border-slate-200 rounded-xl text-center hover:border-sky-400 transition bg-slate-50/50">
+                  <p className="font-bold text-slate-800 mb-1">Upload Glass Care Backup (.json)</p>
+                  <p className="text-[11px] text-slate-500 mb-3">
+                    Exported using the <code>💾 Backup All Data (JSON)</code> button on the website.
+                  </p>
+                  <label className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 hover:border-slate-400 font-semibold text-slate-700 rounded-lg cursor-pointer shadow-2xs">
+                    <span>📁 Choose Backup JSON</span>
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={handleJsonFileUpload}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Or Paste Document / Backup JSON:</label>
+                  <textarea
+                    rows={3}
+                    value={syncInput}
+                    onChange={(e) => setSyncInput(e.target.value)}
+                    placeholder='Paste {"document": { ... }} or [{"type": "Bill", ...}]'
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
                   <button
                     type="button"
                     disabled={syncLoading || !syncInput.trim()}
@@ -1180,7 +1407,53 @@ export default function QuotesListPage() {
                   </button>
                 </div>
               </div>
-            </div>
+            )}
+
+            {/* TAB 3: LIVE WEBHOOK */}
+            {syncTab === "webhook" && (
+              <div className="space-y-3 text-xs">
+                <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 font-bold text-emerald-900">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      <span>Live Webhook Active</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const url = `${window.location.origin}/api/integrations/glass-care`;
+                        navigator.clipboard.writeText(url);
+                        showToast("Webhook URL copied to clipboard!");
+                      }}
+                      className="px-2.5 py-1 bg-white border border-emerald-300 text-emerald-800 rounded font-semibold text-[11px] hover:bg-emerald-100 transition cursor-pointer"
+                    >
+                      📋 Copy Webhook URL
+                    </button>
+                  </div>
+                  <p className="text-slate-600 text-[11px] leading-relaxed">
+                    Every Bill, Invoice, or Estimate generated on your website automatically pushes straight to Tab 1 and the other 6 tabs in real-time.
+                  </p>
+                </div>
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-600">
+                  <p className="font-bold text-slate-800 mb-1">Connected Tabs:</p>
+                  <ul className="list-disc list-inside space-y-0.5 text-[11px]">
+                    <li><strong>Tab 1:</strong> Quotation Tracker &amp; PDF generation</li>
+                    <li><strong>Tab 2:</strong> Factory WIP cutting list with -7mm allowance</li>
+                    <li><strong>Tab 3:</strong> Payment Tracker (automatic sync of paid bills)</li>
+                    <li><strong>Tab 4:</strong> Assigned Vendors &amp; Factory routing</li>
+                    <li><strong>Tab 5:</strong> Purchase &amp; Project Expense tracking</li>
+                    <li><strong>Tab 6:</strong> Month Profit (70% Owner / 30% Partner)</li>
+                    <li><strong>Tab 7:</strong> Inventory stock deduction</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {syncResult && (
+              <div className={`mt-3 p-3 rounded-lg text-xs font-semibold ${syncResult.startsWith("✓") ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
+                {syncResult}
+              </div>
+            )}
           </div>
         </div>
       )}
