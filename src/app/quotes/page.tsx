@@ -14,9 +14,11 @@ interface QuoteListItem {
   version: number;
   status: QuoteStatus;
   customerName: string;
+  customerPhone?: string;
   customerBuilding: string;
   customerFlat: string;
   destinationState: string;
+  workSummary?: string;
   itemCount: number;
   revisionCount: number;
   subTotal: number;
@@ -261,13 +263,13 @@ export default function QuotesListPage() {
 
   const getStatusBadge = (status: QuoteStatus) => {
     const map: Record<QuoteStatus, string> = {
-      DRAFT: "bg-slate-100 text-slate-700 border-slate-300",
-      SENT: "bg-blue-50 text-blue-700 border-blue-300",
-      APPROVED: "bg-emerald-50 text-emerald-700 border-emerald-300",
-      IN_PRODUCTION: "bg-amber-50 text-amber-800 border-amber-300",
-      DELIVERED: "bg-purple-50 text-purple-700 border-purple-300",
-      PAID: "bg-green-100 text-green-900 border-green-300 font-extrabold",
-      CANCELLED: "bg-red-50 text-red-700 border-red-300",
+      DRAFT: "bg-red-50 text-red-700 border-red-300 font-bold",
+      SENT: "bg-red-50 text-red-700 border-red-300 font-bold",
+      APPROVED: "bg-amber-50 text-amber-800 border-amber-300 font-bold",
+      IN_PRODUCTION: "bg-amber-50 text-amber-800 border-amber-300 font-bold",
+      DELIVERED: "bg-emerald-50 text-emerald-800 border-emerald-300 font-bold",
+      PAID: "bg-green-100 text-green-900 border-green-400 font-extrabold",
+      CANCELLED: "bg-slate-100 text-slate-600 border-slate-300",
     };
     return map[status] || "bg-slate-100 text-slate-700";
   };
@@ -414,7 +416,8 @@ export default function QuotesListPage() {
                 <tr>
                   <th className="py-3 px-3 text-center w-10">#</th>
                   <th className="py-3 px-3">Date &amp; Quote #</th>
-                  <th className="py-3 px-3">Customer Name</th>
+                  <th className="py-3 px-3">Customer &amp; Mobile</th>
+                  <th className="py-3 px-3">Work / Items</th>
                   <th className="py-3 px-3">Location / Flat</th>
                   <th className="py-3 px-2 text-center">Items</th>
                   <th className="py-3 px-3 text-right">Sub Total</th>
@@ -427,13 +430,13 @@ export default function QuotesListPage() {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={10} className="py-12 text-center text-slate-400 font-medium">
+                    <td colSpan={11} className="py-12 text-center text-slate-400 font-medium">
                       Loading quotations...
                     </td>
                   </tr>
                 ) : quotes.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="py-12 text-center text-slate-400">
+                    <td colSpan={11} className="py-12 text-center text-slate-400">
                       <p className="text-sm font-semibold text-slate-600">No quotations found</p>
                       <p className="text-xs text-slate-400 mt-1">Click &quot;+ New Quotation&quot; to create your first quote.</p>
                     </td>
@@ -476,9 +479,24 @@ export default function QuotesListPage() {
                           <div className="text-[10px] text-slate-400 font-normal">{createdDateFormatted}</div>
                         </td>
 
-                        {/* Customer */}
-                        <td className="py-3 px-3 font-semibold text-slate-900">
-                          {q.customerName}
+                        {/* Customer & Mobile */}
+                        <td className="py-3 px-3">
+                          <div className="font-semibold text-slate-900">{q.customerName}</div>
+                          {q.customerPhone ? (
+                            <div className="text-[10px] text-slate-500 font-mono flex items-center gap-1 mt-0.5">
+                              <span>📱</span>
+                              <span>{q.customerPhone}</span>
+                            </div>
+                          ) : (
+                            <div className="text-[10px] text-slate-400">Direct Client</div>
+                          )}
+                        </td>
+
+                        {/* Work / Items */}
+                        <td className="py-3 px-3 text-slate-700 max-w-[170px]" title={q.workSummary}>
+                          <div className="truncate font-medium text-[11px] text-slate-800">
+                            {q.workSummary || "Glass & Aluminium Work"}
+                          </div>
                         </td>
 
                         {/* Location */}
